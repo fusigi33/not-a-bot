@@ -77,3 +77,7 @@ DerivedDataCache/*
 # Unreal assets
 Content/Fab
 Content/Generic_Item_Destruction_FX
+Content/Characters
+Content/Free_Magic
+Content/LevelPrototyping
+Content/ThirdPerson
