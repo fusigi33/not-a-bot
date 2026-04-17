@@ -27,14 +27,16 @@ void UKnifeWeaponComponent::PerformUse(
 
 	FCollisionQueryParams Params;
 	Params.AddIgnoredActor(User);
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
 
 	FHitResult Hit;
-	const bool bHit = GetWorld()->SweepSingleByChannel(
+	const bool bHit = GetWorld()->SweepSingleByObjectType(
 		Hit,
 		Start,
 		End,
 		FQuat::Identity,
-		ECC_Visibility,
+		ObjectQueryParams,
 		FCollisionShape::MakeSphere(AttackRadius),
 		Params
 	);

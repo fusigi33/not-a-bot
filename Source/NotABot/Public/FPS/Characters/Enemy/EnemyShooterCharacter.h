@@ -58,8 +58,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI")
 	EEnemyPoseType PoseType = EEnemyPoseType::Standing;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI")
-	bool bCanAttack = true;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="AI")
+	bool bCanAttack = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="AI")
 	EEnemyAttackState AttackState = EEnemyAttackState::Idle;
@@ -70,6 +70,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI|Aim")
 	float LoseTargetGraceTime = 1.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI|Aim")
+	float TargetRecognitionDelay = 0.45f;
 
 	// ---------- 권총 ----------
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI|Pistol")
@@ -112,8 +115,10 @@ protected:
 	float StateStartTime = 0.f;
 	float LastSeenTargetTime = -100.f;
 	float LastBurstShotTime = -100.f;
+	float TargetRecognitionStartTime = -100.f;
 
 	int32 BurstShotsFired = 0;
+	TWeakObjectPtr<AActor> RecognizedTarget;
 
 	void HandleInitialPose();
 

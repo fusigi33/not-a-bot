@@ -7,10 +7,12 @@
 
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 AFPSPlayerCharacter::AFPSPlayerCharacter()
 {
@@ -25,10 +27,8 @@ AFPSPlayerCharacter::AFPSPlayerCharacter()
 	KnifeComponent = CreateDefaultSubobject<UKnifeWeaponComponent>(TEXT("KnifeComponent"));
 }
 
-void AFPSPlayerCharacter::BeginPlay()
+void AFPSPlayerCharacter::InitializeActor()
 {
-	Super::BeginPlay();
-
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
 	{
 		if (ULocalPlayer* LP = PC->GetLocalPlayer())
@@ -38,11 +38,95 @@ void AFPSPlayerCharacter::BeginPlay()
 			{
 				if (DefaultMappingContext)
 				{
+					Subsystem->RemoveMappingContext(DefaultMappingContext);
 					Subsystem->AddMappingContext(DefaultMappingContext, 0);
 				}
 			}
 		}
 	}
+}
+
+void AFPSPlayerCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+
+	InitialSpawnTransform = GetActorTransform();
+	InitialWeapon = CurrentWeapon;
+
+	if (UCapsuleComponent* PlayerCapsuleComponent = GetCapsuleComponent())
+	{
+		InitialCapsuleCollisionEnabled = PlayerCapsuleComponent->GetCollisionEnabled();
+		InitialCapsuleCollisionProfileName = PlayerCapsuleComponent->GetCollisionProfileName();
+	}
+
+	if (USkeletalMeshComponent* MeshComponent = GetMesh())
+	{
+		InitialMeshCollisionEnabled = MeshComponent->GetCollisionEnabled();
+		InitialMeshCollisionProfileName = MeshComponent->GetCollisionProfileName();
+		InitialMeshRelativeLocation = MeshComponent->GetRelativeLocation();
+		InitialMeshRelativeRotation = MeshComponent->GetRelativeRotation();
+	}
+}
+
+void AFPSPlayerCharacter::Respawn()
+{
+	SetLifeSpan(0.f);
+	bDead = false;
+	bWantsToFire = false;
+	CurrentHealth = MaxHealth;
+	CurrentArmor = MaxArmor;
+	InvulnerableUntilTime = 0.f;
+	CurrentWeapon = InitialWeapon;
+
+	if (UCharacterMovementComponent* PlayerCharacterMovement = GetCharacterMovement())
+	{
+		PlayerCharacterMovement->SetMovementMode(MOVE_Walking);
+	}
+
+	if (UCapsuleComponent* PlayerCapsuleComponent = GetCapsuleComponent())
+	{
+		PlayerCapsuleComponent->SetCollisionEnabled(InitialCapsuleCollisionEnabled);
+		if (!InitialCapsuleCollisionProfileName.IsNone())
+		{
+			PlayerCapsuleComponent->SetCollisionProfileName(InitialCapsuleCollisionProfileName);
+		}
+	}
+
+	if (USkeletalMeshComponent* MeshComponent = GetMesh())
+	{
+		MeshComponent->SetSimulatePhysics(false);
+		MeshComponent->SetAllPhysicsLinearVelocity(FVector::ZeroVector);
+		MeshComponent->SetAllPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
+		MeshComponent->SetCollisionEnabled(InitialMeshCollisionEnabled);
+		if (!InitialMeshCollisionProfileName.IsNone())
+		{
+			MeshComponent->SetCollisionProfileName(InitialMeshCollisionProfileName);
+		}
+		MeshComponent->AttachToComponent(
+			GetCapsuleComponent(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		MeshComponent->SetRelativeLocation(InitialMeshRelativeLocation);
+		MeshComponent->SetRelativeRotation(InitialMeshRelativeRotation);
+		MeshComponent->SetHiddenInGame(false);
+		MeshComponent->SetVisibility(true, true);
+		MeshComponent->ResetAllBodiesSimulatePhysics();
+		MeshComponent->ResetAnimInstanceDynamics(ETeleportType::ResetPhysics);
+	}
+
+	TeleportTo(
+		InitialSpawnTransform.GetLocation(),
+		InitialSpawnTransform.Rotator(),
+		false,
+		true);
+
+	if (AController* CurrentController = GetController())
+	{
+		CurrentController->SetControlRotation(InitialSpawnTransform.Rotator());
+	}
+
+	RestoreEquippedWeaponAttachment();
+
+	InitializeActor();
 }
 
 void AFPSPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

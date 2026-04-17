@@ -1,5 +1,6 @@
 #include "FPS/Characters/Base/FPSCombatCharacter.h"
 
+#include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
 
@@ -15,6 +16,24 @@ void AFPSCombatCharacter::BeginPlay()
 	CurrentHealth = MaxHealth;
 	CurrentArmor = MaxArmor;
 	bDead = false;
+	InvulnerableUntilTime = 0.f;
+	
+	if (WeaponClass)
+	{
+		EquippedWeapon = GetWorld()->SpawnActor<AActor>(WeaponClass);
+		RestoreEquippedWeaponAttachment();
+	}
+}
+
+void AFPSCombatCharacter::RestoreEquippedWeaponAttachment()
+{
+	if (EquippedWeapon && GetMesh())
+	{
+		EquippedWeapon->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			TEXT("hand_rSocket"));
+	}
 }
 
 float AFPSCombatCharacter::TakeDamage(
@@ -23,12 +42,19 @@ float AFPSCombatCharacter::TakeDamage(
 	AController* EventInstigator,
 	AActor* DamageCauser)
 {
-	if (bDead || DamageAmount <= 0.f)
+	if (bDead || DamageAmount <= 0.f || IsInvulnerable())
 	{
 		return 0.f;
 	}
 
 	ApplyDamageToArmorAndHealth(DamageAmount);
+
+	if (InvulnerabilityDuration > 0.f)
+	{
+		InvulnerableUntilTime = GetWorld()->GetTimeSeconds() + InvulnerabilityDuration;
+	}
+
+	K2_OnDamaged(DamageAmount, CurrentHealth, CurrentArmor, EventInstigator, DamageCauser);
 
 	if (CurrentHealth <= 0.f)
 	{
@@ -36,6 +62,11 @@ float AFPSCombatCharacter::TakeDamage(
 	}
 
 	return DamageAmount;
+}
+
+bool AFPSCombatCharacter::IsInvulnerable() const
+{
+	return GetWorld() && GetWorld()->GetTimeSeconds() < InvulnerableUntilTime;
 }
 
 void AFPSCombatCharacter::ApplyDamageToArmorAndHealth(float IncomingDamage)
@@ -64,6 +95,7 @@ void AFPSCombatCharacter::Die(AController* KillerController)
 
 	bDead = true;
 	OnDeath();
+	OnCharacterDied.Broadcast(this, KillerController);
 }
 
 void AFPSCombatCharacter::OnDeath()

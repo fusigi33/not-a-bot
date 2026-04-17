@@ -2,16 +2,11 @@
 
 #include "Kismet/GameplayStatics.h"
 #include "DrawDebugHelpers.h"
-#include "Engine/World.h"
 
 UShotgunComponent::UShotgunComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
-}
-
-void UShotgunComponent::BeginPlay()
-{
-	Super::BeginPlay();
+	FireInterval = 1.f;
+	Range = 3000.f;
 }
 
 FVector UShotgunComponent::GetRandomSpreadDirection(const FVector& Forward, float InSpreadDegrees) const
@@ -20,22 +15,34 @@ FVector UShotgunComponent::GetRandomSpreadDirection(const FVector& Forward, floa
 	return FMath::VRandCone(Forward, ConeHalfAngleRad, ConeHalfAngleRad).GetSafeNormal();
 }
 
-void UShotgunComponent::FireShotgun(
+bool UShotgunComponent::FireShotgun(
 	AActor* Shooter,
 	const FVector& Start,
 	const FVector& AimDirection,
 	float ExtraAimErrorDegrees)
 {
-	if (!GetWorld() || !Shooter)
+	PendingExtraAimErrorDegrees = ExtraAimErrorDegrees;
+	const bool bFired = TryUse(Shooter, Start, AimDirection);
+	PendingExtraAimErrorDegrees = 0.f;
+	return bFired;
+}
+
+void UShotgunComponent::PerformUse(
+	AActor* User,
+	const FVector& Start,
+	const FVector& AimDirection)
+{
+	if (!GetWorld() || !User)
 	{
 		return;
 	}
 
-	const float FinalSpread = SpreadAngleDegrees + ExtraAimErrorDegrees;
-
+	const float FinalSpread = SpreadAngleDegrees + PendingExtraAimErrorDegrees;
 	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(Shooter);
+	Params.AddIgnoredActor(User);
 	Params.bReturnPhysicalMaterial = false;
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
 
 	for (int32 i = 0; i < PelletCount; ++i)
 	{
@@ -43,26 +50,28 @@ void UShotgunComponent::FireShotgun(
 		const FVector End = Start + ShotDir * Range;
 
 		FHitResult Hit;
-		const bool bHit = GetWorld()->LineTraceSingleByChannel(
+		const bool bHit = GetWorld()->LineTraceSingleByObjectType(
 			Hit,
 			Start,
 			End,
-			ECC_Visibility,
+			ObjectQueryParams,
 			Params
 		);
 
 		if (bHit)
 		{
+			const FHitResult DamageHit = ResolveSkeletalMeshHit(Hit, Start, End);
+
 			UGameplayStatics::ApplyDamage(
 				Hit.GetActor(),
-				DamagePerPellet,
-				Shooter->GetInstigatorController(),
-				Shooter,
+				GetDamageForHit(DamagePerPellet, DamageHit),
+				User->GetInstigatorController(),
+				User,
 				UDamageType::StaticClass()
 			);
 
 			// 디버그용
-			DrawDebugLine(GetWorld(), Start, Hit.ImpactPoint, FColor::Red, false, 1.0f, 0, 1.0f);
+			DrawDebugLine(GetWorld(), Start, DamageHit.ImpactPoint, FColor::Red, false, 1.0f, 0, 1.0f);
 		}
 		else
 		{

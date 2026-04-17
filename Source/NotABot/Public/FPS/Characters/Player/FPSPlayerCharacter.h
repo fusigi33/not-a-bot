@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Engine/EngineTypes.h"
 #include "FPS/Characters/Base/FPSCombatCharacter.h"
 #include "FPSPlayerCharacter.generated.h"
 
@@ -28,6 +29,12 @@ class NOTABOT_API AFPSPlayerCharacter : public AFPSCombatCharacter
 
 public:
 	AFPSPlayerCharacter();
+	
+	UFUNCTION(BlueprintCallable)
+	void InitializeActor();
+
+	UFUNCTION(BlueprintCallable, Category = "Combat")
+	void Respawn();
 
 protected:
 	virtual void BeginPlay() override;
@@ -92,4 +99,15 @@ protected:
 	void EquipKnife();
 	
 	bool bWantsToFire = false;
+
+	FTransform InitialSpawnTransform;
+	FVector InitialMeshRelativeLocation = FVector::ZeroVector;
+	FRotator InitialMeshRelativeRotation = FRotator::ZeroRotator;
+	EPlayerWeaponType InitialWeapon = EPlayerWeaponType::Shotgun;
+
+	ECollisionEnabled::Type InitialCapsuleCollisionEnabled = ECollisionEnabled::QueryAndPhysics;
+	FName InitialCapsuleCollisionProfileName;
+
+	ECollisionEnabled::Type InitialMeshCollisionEnabled = ECollisionEnabled::QueryOnly;
+	FName InitialMeshCollisionProfileName;
 };

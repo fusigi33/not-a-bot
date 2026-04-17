@@ -46,7 +46,18 @@ void AEnemyShooterCharacter::Tick(float DeltaSeconds)
 	AActor* Target = GetTargetActor();
 	if (Target)
 	{
+		if (RecognizedTarget.Get() != Target)
+		{
+			RecognizedTarget = Target;
+			TargetRecognitionStartTime = GetWorld()->GetTimeSeconds();
+		}
+
 		LastSeenTargetTime = GetWorld()->GetTimeSeconds();
+	}
+	else
+	{
+		RecognizedTarget = nullptr;
+		TargetRecognitionStartTime = -100.f;
 	}
 
 	UpdateAttackState(DeltaSeconds);
@@ -175,6 +186,12 @@ void AEnemyShooterCharacter::UpdateIdleState(AActor* Target)
 		return;
 	}
 
+	const float Now = GetWorld()->GetTimeSeconds();
+	if ((Now - TargetRecognitionStartTime) < TargetRecognitionDelay)
+	{
+		return;
+	}
+
 	EnterState(EEnemyAttackState::Aiming);
 }
 
@@ -293,8 +310,7 @@ bool AEnemyShooterCharacter::FireCurrentWeapon(AActor* Target)
 		if (ShotgunComponent)
 		{
 			const FVector AimDir = GetAimDirectionToTarget(Target, true);
-			ShotgunComponent->FireShotgun(this, Start, AimDir, 0.f);
-			return true;
+			return ShotgunComponent->FireShotgun(this, Start, AimDir, 0.f);
 		}
 		break;
 
