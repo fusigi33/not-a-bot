@@ -12,7 +12,7 @@ public class NotABot : ModuleRules
 		{
 			"Core", "CoreUObject", "Engine", "InputCore",
 			"UMG",  "Slate", "SlateCore", "EnhancedInput",
-			"Niagara", "AIModule", "GameplayTasks",
+			"Niagara", "AIModule", "GameplayTasks", "PhysicsCore",
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
