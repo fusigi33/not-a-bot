@@ -23,10 +23,14 @@ FVector ADominoBoardActor::SnapLocationToBoard(const FVector& WorldLocation) con
 		Local.Z = FMath::GridSnap(Local.Z, SnapSize);
 	}
 
-	const FVector2D HalfSize = BoardSize * 0.5f;
-	Local.X = FMath::Clamp(Local.X, -HalfSize.X, HalfSize.X);
 	Local.Y = 0.0f;
-	Local.Z = FMath::Clamp(Local.Z, -HalfSize.Y, HalfSize.Y);
+
+	if (bConstrainPlacementToBoardBounds)
+	{
+		const FVector2D HalfSize = BoardSize * 0.5f;
+		Local.X = FMath::Clamp(Local.X, -HalfSize.X, HalfSize.X);
+		Local.Z = FMath::Clamp(Local.Z, -HalfSize.Y, HalfSize.Y);
+	}
 
 	return GetActorTransform().TransformPosition(Local);
 }

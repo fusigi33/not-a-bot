@@ -42,6 +42,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Board")
 	bool bUsePlacementSnap = false;
 
+	/** true이면 BoardSize 사각형 안으로 배치 위치를 제한합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Board")
+	bool bConstrainPlacementToBoardBounds = false;
+
 	/** 도미노가 놓일 보드 평면의 월드 Z 위치입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Board")
 	float BoardPlaneZ = 0.0f;

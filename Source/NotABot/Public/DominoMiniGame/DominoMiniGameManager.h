@@ -161,6 +161,10 @@ public:
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Domino MiniGame")
 	TObjectPtr<ADominoBlockActor> PreviewDomino;
 
+	/** 라운드 데이터에서 스폰된 상호작용 오브젝트 목록입니다. */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Domino MiniGame")
+	TArray<TObjectPtr<AActor>> SpawnedInteractiveObjects;
+
 	/** 현재 미리보기 위치가 유효한지 여부입니다. */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Domino MiniGame")
 	bool bPreviewPlacementValid = false;
@@ -171,11 +175,26 @@ protected:
 	/** 시작/목표 도미노를 준비합니다. */
 	void EnsureEndpointDominoes();
 
+	/** 라운드 데이터에 등록된 상호작용 오브젝트를 스폰합니다. */
+	void SpawnInteractiveObjects();
+
+	/** 인터페이스를 구현한 상호작용 오브젝트의 시뮬레이션 활성 상태를 변경합니다. */
+	void SetInteractiveObjectsSimulationEnabled(bool bEnabled);
+
 	/** 도미노 한 개를 스폰합니다. */
 	ADominoBlockActor* SpawnDomino(const FVector& Location, const FRotator& Rotation, bool bPreview) const;
 
 	/** 보드 표면 위치를 실제 도미노 액터 피벗 위치로 변환합니다. */
 	FVector GetDominoActorLocationFromBoardLocation(const FVector& BoardLocation) const;
+
+	/** 실제 도미노 액터 피벗 위치를 보드 표면 위치로 되돌립니다. */
+	FVector GetBoardLocationFromDominoActorLocation(const FVector& ActorLocation) const;
+
+	/** 실제 도미노 액터 피벗 위치에서 배치 검사 박스의 중심 위치를 계산합니다. */
+	FVector GetPlacementQueryCenterFromDominoActorLocation(const FVector& ActorLocation, FRotator Rotation) const;
+
+	/** 보드 표면 위치와 실제 도미노 액터 피벗 위치를 기준으로 배치 가능 여부를 검사합니다. */
+	bool CanPlaceDominoAtBoardAndActorLocations(const FVector& BoardLocation, const FVector& ActorLocation, FRotator Rotation) const;
 
 	/** 보드 액터 Bounds와 겹치면 도미노가 보드 앞쪽에 오도록 로컬 Y를 보정합니다. */
 	FVector AdjustDominoLocationAboveBoard(const FVector& ActorLocation) const;

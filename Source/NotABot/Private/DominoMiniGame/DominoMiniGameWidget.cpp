@@ -22,13 +22,6 @@ void UDominoMiniGameWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	SetVisibility(ESlateVisibility::Visible);
-
-	if (WidgetTree && WidgetTree->RootWidget)
-	{
-		WidgetTree->RootWidget->SetVisibility(ESlateVisibility::Visible);
-	}
-
 	if (StartButton)
 	{
 		StartButton->OnClicked.AddDynamic(this, &UDominoMiniGameWidget::HandleStartButtonClicked);

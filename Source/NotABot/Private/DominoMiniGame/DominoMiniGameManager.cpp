@@ -2,6 +2,7 @@
 
 #include "DominoMiniGame/DominoBlockActor.h"
 #include "DominoMiniGame/DominoBoardActor.h"
+#include "DominoMiniGame/DominoSimulationObjectInterface.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/DataTable.h"
 #include "Engine/World.h"
@@ -24,6 +25,8 @@ void ADominoMiniGameManager::BeginRound()
 	ResetRound();
 
 	EnsureEndpointDominoes();
+	SpawnInteractiveObjects();
+	SetInteractiveObjectsSimulationEnabled(false);
 
 	if (StartDomino)
 	{
@@ -54,6 +57,19 @@ void ADominoMiniGameManager::ResetRound()
 		}
 	}
 	PlacedDominoes.Reset();
+
+	for (AActor* InteractiveObject : SpawnedInteractiveObjects)
+	{
+		if (IsValid(InteractiveObject))
+		{
+			if (InteractiveObject->GetClass()->ImplementsInterface(UDominoSimulationObjectInterface::StaticClass()))
+			{
+				IDominoSimulationObjectInterface::Execute_ResetDominoSimulationObject(InteractiveObject);
+			}
+			InteractiveObject->Destroy();
+		}
+	}
+	SpawnedInteractiveObjects.Reset();
 
 	if (StartDomino)
 	{
@@ -117,17 +133,17 @@ bool ADominoMiniGameManager::RequestPreviewDominoAtWorldLocation(const FVector& 
 		return false;
 	}
 
-	FVector PlacementLocation = WorldLocation;
+	FVector BoardPlacementLocation = WorldLocation;
 	if (BoardActor)
 	{
-		PlacementLocation = BoardActor->SnapLocationToBoard(WorldLocation);
+		BoardPlacementLocation = BoardActor->SnapLocationToBoard(WorldLocation);
 	}
 	else
 	{
 		UE_LOG(LogDominoMiniGame, Warning, TEXT("Preview request has no BoardActor. Using raw world location: %s"), *WorldLocation.ToString());
 	}
 
-	PlacementLocation = GetDominoActorLocationFromBoardLocation(PlacementLocation);
+	const FVector PlacementLocation = GetDominoActorLocationFromBoardLocation(BoardPlacementLocation);
 
 	if (!PreviewDomino)
 	{
@@ -141,7 +157,7 @@ bool ADominoMiniGameManager::RequestPreviewDominoAtWorldLocation(const FVector& 
 	}
 
 	PreviewDomino->SetActorLocationAndRotation(PlacementLocation, CurrentPlacementRotation, false, nullptr, ETeleportType::TeleportPhysics);
-	bPreviewPlacementValid = CanPlaceDominoAt(PlacementLocation, CurrentPlacementRotation);
+	bPreviewPlacementValid = CanPlaceDominoAtBoardAndActorLocations(BoardPlacementLocation, PlacementLocation, CurrentPlacementRotation);
 	PreviewDomino->SetPreviewValid(bPreviewPlacementValid);
 
 	UE_LOG(LogDominoMiniGame, Warning, TEXT("Preview updated. RawWorldLocation=%s, PlacementLocation=%s, bPreviewPlacementValid=%s"),
@@ -165,7 +181,7 @@ bool ADominoMiniGameManager::ConfirmPlacePreviewDomino()
 	const FVector Location = PreviewDomino->GetActorLocation();
 	const FRotator Rotation = PreviewDomino->GetActorRotation();
 
-	if (!bPreviewPlacementValid || !CanPlaceDominoAt(Location, Rotation))
+	if (!bPreviewPlacementValid || !CanPlaceDominoAtBoardAndActorLocations(GetBoardLocationFromDominoActorLocation(Location), Location, Rotation))
 	{
 		UE_LOG(LogDominoMiniGame, Warning, TEXT("Confirm place failed: placement invalid. Location=%s, bPreviewPlacementValid=%s"),
 			*Location.ToString(),
@@ -202,15 +218,22 @@ void ADominoMiniGameManager::CancelPreviewDomino()
 
 bool ADominoMiniGameManager::CanPlaceDominoAt(const FVector& WorldLocation, FRotator Rotation) const
 {
+	const FVector ActorLocation = GetDominoActorLocationFromBoardLocation(WorldLocation);
+	return CanPlaceDominoAtBoardAndActorLocations(WorldLocation, ActorLocation, Rotation);
+}
+
+bool ADominoMiniGameManager::CanPlaceDominoAtBoardAndActorLocations(const FVector& BoardLocation, const FVector& ActorLocation, FRotator Rotation) const
+{
 	if (!GetWorld())
 	{
 		return false;
 	}
 
-	if (BoardActor && !BoardActor->IsInsideBoard(WorldLocation))
+	if (BoardActor && BoardActor->bConstrainPlacementToBoardBounds && !BoardActor->IsInsideBoard(BoardLocation))
 	{
-		UE_LOG(LogDominoMiniGame, Warning, TEXT("CanPlaceDominoAt failed: location is outside BoardActor. Location=%s, BoardActor=%s, BoardSize=%s, BoardPlaneZ=%f"),
-			*WorldLocation.ToString(),
+		UE_LOG(LogDominoMiniGame, Warning, TEXT("CanPlaceDominoAt failed: board location is outside BoardActor. BoardLocation=%s, ActorLocation=%s, BoardActor=%s, BoardSize=%s, BoardPlaneZ=%f"),
+			*BoardLocation.ToString(),
+			*ActorLocation.ToString(),
 			*BoardActor->GetName(),
 			*BoardActor->BoardSize.ToString(),
 			BoardActor->BoardPlaneZ);
@@ -232,10 +255,11 @@ bool ADominoMiniGameManager::CanPlaceDominoAt(const FVector& WorldLocation, FRot
 	TArray<FOverlapResult> Overlaps;
 	const FCollisionShape BoxShape = FCollisionShape::MakeBox(PlacementHalfExtent);
 	const FQuat RotationQuat = Rotation.Quaternion();
+	const FVector QueryCenter = GetPlacementQueryCenterFromDominoActorLocation(ActorLocation, Rotation);
 
 	const bool bHasOverlap = GetWorld()->OverlapMultiByChannel(
 		Overlaps,
-		WorldLocation,
+		QueryCenter,
 		RotationQuat,
 		PlacementTraceChannel,
 		BoxShape,
@@ -256,9 +280,10 @@ bool ADominoMiniGameManager::CanPlaceDominoAt(const FVector& WorldLocation, FRot
 		}
 
 		// 시작/목표/기존 도미노/장애물 등 쿼리에 잡히는 블로킹 액터와 겹치면 배치 불가입니다.
-		UE_LOG(LogDominoMiniGame, Warning, TEXT("CanPlaceDominoAt failed: overlap with %s at Location=%s"),
+		UE_LOG(LogDominoMiniGame, Warning, TEXT("CanPlaceDominoAt failed: overlap with %s at ActorLocation=%s, QueryCenter=%s"),
 			*HitActor->GetName(),
-			*WorldLocation.ToString());
+			*ActorLocation.ToString(),
+			*QueryCenter.ToString());
 		return false;
 	}
 
@@ -283,6 +308,8 @@ void ADominoMiniGameManager::StartSimulation()
 	}
 
 	CurrentState = EDominoMiniGameState::Simulating;
+
+	SetInteractiveObjectsSimulationEnabled(true);
 
 	StartDomino->SetPhysicsEnabled(true);
 	GoalDomino->SetPhysicsEnabled(true);
@@ -373,6 +400,43 @@ void ADominoMiniGameManager::EnsureEndpointDominoes()
 	}
 }
 
+void ADominoMiniGameManager::SpawnInteractiveObjects()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	for (const FDominoRoundInteractiveObjectData& ObjectData : RoundData.InteractiveObjects)
+	{
+		if (!ObjectData.ObjectClass)
+		{
+			continue;
+		}
+
+		FActorSpawnParameters SpawnParams;
+		SpawnParams.Owner = this;
+		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		AActor* SpawnedObject = GetWorld()->SpawnActor<AActor>(ObjectData.ObjectClass, ObjectData.Transform, SpawnParams);
+		if (SpawnedObject)
+		{
+			SpawnedInteractiveObjects.Add(SpawnedObject);
+		}
+	}
+}
+
+void ADominoMiniGameManager::SetInteractiveObjectsSimulationEnabled(bool bEnabled)
+{
+	for (AActor* InteractiveObject : SpawnedInteractiveObjects)
+	{
+		if (IsValid(InteractiveObject) && InteractiveObject->GetClass()->ImplementsInterface(UDominoSimulationObjectInterface::StaticClass()))
+		{
+			IDominoSimulationObjectInterface::Execute_SetDominoSimulationEnabled(InteractiveObject, bEnabled);
+		}
+	}
+}
+
 ADominoBlockActor* ADominoMiniGameManager::SpawnDomino(const FVector& Location, const FRotator& Rotation, bool bPreview) const
 {
 	if (!GetWorld() || !RoundData.DominoClass)
@@ -405,6 +469,28 @@ FVector ADominoMiniGameManager::GetDominoActorLocationFromBoardLocation(const FV
 	}
 
 	return bPlaceDominoPivotAboveBoard ? AdjustDominoLocationAboveBoard(ActorLocation) : ActorLocation;
+}
+
+FVector ADominoMiniGameManager::GetBoardLocationFromDominoActorLocation(const FVector& ActorLocation) const
+{
+	FVector BoardLocation = ActorLocation;
+
+	if (bAlignDominoCenterToCursor)
+	{
+		BoardLocation.Z += PlacementHalfExtent.Z;
+	}
+
+	return BoardLocation;
+}
+
+FVector ADominoMiniGameManager::GetPlacementQueryCenterFromDominoActorLocation(const FVector& ActorLocation, FRotator Rotation) const
+{
+	if (!bAlignDominoCenterToCursor)
+	{
+		return ActorLocation;
+	}
+
+	return ActorLocation + Rotation.RotateVector(FVector::UpVector * PlacementHalfExtent.Z);
 }
 
 FVector ADominoMiniGameManager::AdjustDominoLocationAboveBoard(const FVector& ActorLocation) const

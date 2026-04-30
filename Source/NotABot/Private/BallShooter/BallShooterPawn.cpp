@@ -224,7 +224,7 @@ void ABallShooterPawn::LaunchBall(const FVector& InitialVelocity)
 		FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(BallShooterLaunchOverlap), false, this);
 		if (CollisionSphere)
 		{
-			QueryParams.AddIgnoredComponent(CollisionSphere);
+			QueryParams.AddIgnoredComponent(CollisionSphere.Get());
 		}
 
 		bWorldOverlapDetected = World->OverlapMultiByObjectType(
