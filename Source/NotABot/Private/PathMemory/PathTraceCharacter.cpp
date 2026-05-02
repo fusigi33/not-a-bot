@@ -11,6 +11,7 @@
 
 #include "GameFramework/PlayerController.h"
 #include "Engine/LocalPlayer.h"
+#include "InputCoreTypes.h"
 
 APathTraceCharacter::APathTraceCharacter()
 {
@@ -115,6 +116,47 @@ void APathTraceCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 		{
 			EnhancedInput->BindAction(LookAction, ETriggerEvent::Triggered, this, &APathTraceCharacter::Look);
 		}
+
+		if (CursorAction)
+		{
+			EnhancedInput->BindAction(CursorAction, ETriggerEvent::Started, this, &APathTraceCharacter::ShowMouseCursorWhilePlayerTurn);
+			EnhancedInput->BindAction(CursorAction, ETriggerEvent::Completed, this, &APathTraceCharacter::HideMouseCursor);
+			EnhancedInput->BindAction(CursorAction, ETriggerEvent::Canceled, this, &APathTraceCharacter::HideMouseCursor);
+		}
+	}
+}
+
+void APathTraceCharacter::ShowMouseCursorWhilePlayerTurn()
+{
+	if (!bCanPlayerMove)
+	{
+		return;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->bShowMouseCursor = true;
+	}
+}
+
+void APathTraceCharacter::HideMouseCursor()
+{
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (PC->IsInputKeyDown(EKeys::LeftAlt) || PC->IsInputKeyDown(EKeys::RightAlt))
+		{
+			return;
+		}
+
+		PC->bShowMouseCursor = false;
+	}
+}
+
+void APathTraceCharacter::ForceHideMouseCursor()
+{
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->bShowMouseCursor = false;
 	}
 }
 
@@ -148,6 +190,14 @@ void APathTraceCharacter::Look(const FInputActionValue& Value)
 		return;
 	}
 
+	if (const APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (PC->IsInputKeyDown(EKeys::LeftAlt) || PC->IsInputKeyDown(EKeys::RightAlt))
+		{
+			return;
+		}
+	}
+
 	const FVector2D LookValue = Value.Get<FVector2D>();
 	
 	if (!LookValue.IsNearlyZero())
@@ -163,6 +213,10 @@ void APathTraceCharacter::Look(const FInputActionValue& Value)
 void APathTraceCharacter::SetCanPlayerMove(bool bEnable)
 {
 	bCanPlayerMove = bEnable;
+	if (!bCanPlayerMove)
+	{
+		ForceHideMouseCursor();
+	}
 }
 
 void APathTraceCharacter::ResetRecordedPath()

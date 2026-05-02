@@ -6,6 +6,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "GameFramework/PlayerController.h"
 #include "Components/BoxComponent.h"
+#include "TimerManager.h"
 
 APathTraceGameManager::APathTraceGameManager()
 {
@@ -37,6 +38,11 @@ void APathTraceGameManager::BeginPlay()
 
 void APathTraceGameManager::StartMiniGame()
 {
+	if (!PC)
+	{
+		PC = UGameplayStatics::GetPlayerController(this, 0);
+	}
+
 	if (!BoardActor || !LightTrailActor || !PlayerCharacter || !PC)
 	{
 		return;
@@ -47,9 +53,6 @@ void APathTraceGameManager::StartMiniGame()
 	PlayerCharacter->SetCanPlayerMove(false);
 	PlayerCharacter->ResetRecordedPath();
 
-	// 시작 위치를 스플라인 시작점 근처로 보정
-	PlayerCharacter->SetActorLocation(BoardActor->GetSplineStartLocation());
-
 	// 먼저 보드 상단 perspective scene capture 화면을 보여주는 흐름은
 	// 기존 UMG에서 RenderTarget 머티리얼을 띄워두면 됨
 	// 여기서는 빛줄기만 재생
@@ -58,17 +61,52 @@ void APathTraceGameManager::StartMiniGame()
 
 void APathTraceGameManager::HandleLightTrailFinished()
 {
-	EnterPlayerTurn();
+	if (bWaitingForRecordedPlayerPath)
+	{
+		bWaitingForRecordedPlayerPath = false;
+		OnRecordedPlayerPathFinished.Broadcast(bRecordedPlayerPathSuccess);
+		return;
+	}
+
+	if (AutoPossessDelaySeconds <= 0.f)
+	{
+		EnterPlayerTurn();
+		return;
+	}
+
+	FTimerHandle AutoPossessTimerHandle;
+	GetWorldTimerManager().SetTimer(
+		AutoPossessTimerHandle,
+		this,
+		&APathTraceGameManager::EnterPlayerTurn,
+		AutoPossessDelaySeconds,
+		false
+	);
 }
 
 void APathTraceGameManager::EnterPlayerTurn()
 {
+	if (!PC)
+	{
+		PC = UGameplayStatics::GetPlayerController(this, 0);
+	}
+
 	if (!PC || !PlayerCharacter)
 	{
 		return;
 	}
 
 	CurrentState = EPathTraceState::PlayerTurn;
+
+	if (PC->GetPawn() != PlayerCharacter)
+	{
+		PC->Possess(PlayerCharacter);
+	}
+
+	PC->bShowMouseCursor = false;
+
+	FInputModeGameOnly InputMode;
+	PC->SetInputMode(InputMode);
 
 	PC->SetViewTargetWithBlend(PlayerCharacter, 1.0f);
 	PlayerCharacter->ResetRecordedPath();
@@ -158,8 +196,12 @@ float APathTraceGameManager::EvaluateAccuracyPercent() const
 
 		if (bNearEnough && bForwardEnough)
 		{
-			// 가까울수록 높은 점수
-			const float Closeness = 1.f - FMath::Clamp(DistToSpline2D / BoardActor->AllowedDeviation, 0.f, 1.f);
+			// 충분히 가까운 거리는 완전 일치로 처리하고, 그 밖은 허용 거리까지 점진적으로 감점
+			const float PerfectDeviation = FMath::Clamp(PerfectAccuracyDeviation, 0.f, BoardActor->AllowedDeviation);
+			const float ScoredDeviationRange = FMath::Max(BoardActor->AllowedDeviation - PerfectDeviation, KINDA_SMALL_NUMBER);
+			const float Closeness = DistToSpline2D <= PerfectDeviation
+				? 1.f
+				: 1.f - FMath::Clamp((DistToSpline2D - PerfectDeviation) / ScoredDeviationRange, 0.f, 1.f);
 			MatchedWeight += SegmentWeight * Closeness;
 		}
 
@@ -173,6 +215,41 @@ float APathTraceGameManager::EvaluateAccuracyPercent() const
 	}
 
 	return (MatchedWeight / TotalWeight) * 100.f;
+}
+
+void APathTraceGameManager::ShowAnswerPath(float LifeTime) const
+{
+	if (!BoardActor)
+	{
+		return;
+	}
+
+	BoardActor->ShowAnswerPath(LifeTime);
+}
+
+void APathTraceGameManager::ShowRecordedPlayerPath(float Duration)
+{
+	if (!LightTrailActor || !PlayerCharacter)
+	{
+		bWaitingForRecordedPlayerPath = false;
+		bRecordedPlayerPathSuccess = false;
+		OnRecordedPlayerPathFinished.Broadcast(false);
+		return;
+	}
+
+	const TArray<FVector>& RecordedPath = PlayerCharacter->GetRecordedPath();
+	if (RecordedPath.Num() < 2)
+	{
+		bWaitingForRecordedPlayerPath = false;
+		bRecordedPlayerPathSuccess = false;
+		OnRecordedPlayerPathFinished.Broadcast(false);
+		return;
+	}
+
+	const float AccuracyPercent = EvaluateAccuracyPercent();
+	bRecordedPlayerPathSuccess = AccuracyPercent >= RequiredAccuracyPercent;
+	bWaitingForRecordedPlayerPath = true;
+	LightTrailActor->StartTrailFromPath(RecordedPath, Duration, true);
 }
 
 void APathTraceGameManager::FinishMiniGame(bool bSuccess, float AccuracyPercent)

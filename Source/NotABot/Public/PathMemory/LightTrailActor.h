@@ -12,6 +12,13 @@ class APathTraceBoardActor;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnLightTrailFinished);
 
+UENUM(BlueprintType)
+enum class ELightTrailPathMode : uint8
+{
+	Curve,
+	Linear
+};
+
 UCLASS()
 class NOTABOT_API ALightTrailActor : public AActor
 {
@@ -34,6 +41,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace")
 	float MoveDuration = 2.5f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace|Review")
+	float PlayerPathMoveDuration = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace")
+	ELightTrailPathMode AnswerPathMode = ELightTrailPathMode::Curve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace|Review")
+	ELightTrailPathMode RecordedPathMode = ELightTrailPathMode::Linear;
+
 	// 궤적이 끝까지 이동을 마쳤을 때, 다른 시스템에 신호를 보내기 위한 이벤트 알림 장치
 	UPROPERTY(BlueprintAssignable)
 	FOnLightTrailFinished OnTrailFinished;
@@ -43,10 +59,19 @@ private:
 	TObjectPtr<APathTraceBoardActor> Board;
 
 	float ElapsedTime = 0.f;
+	float ActiveMoveDuration = 0.f;
 	bool bPlaying = false;
+	bool bUsingReplayPath = false;
+	bool bBroadcastWhenFinished = true;
+	TArray<FVector> ReplayPathPoints;
 
 public:
 	void StartTrail(APathTraceBoardActor* InBoard);
+	void StartTrailFromPath(const TArray<FVector>& PathPoints, float Duration = -1.f, bool bShouldBroadcastWhenFinished = false);
+	FVector GetReplayPathLocation(float Alpha) const;
+
+	UFUNCTION(BlueprintCallable, Category="PathTrace")
+	void ClearTrail();
 	
 protected:
 	// 나이아가라 컴포넌트 (선 시각화용)

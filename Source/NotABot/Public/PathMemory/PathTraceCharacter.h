@@ -46,6 +46,9 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="PathTrace|Input")
 	TObjectPtr<UInputAction> LookAction;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="PathTrace|Input")
+	TObjectPtr<UInputAction> CursorAction;
+
 private:
 	bool bCanPlayerMove = false;
 	TArray<FVector> RecordedPath;
@@ -53,6 +56,9 @@ private:
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
+	void ShowMouseCursorWhilePlayerTurn();
+	void HideMouseCursor();
+	void ForceHideMouseCursor();
 	UEnhancedInputLocalPlayerSubsystem* GetEnhancedInputSubsystem() const;
 	void RegisterMappingContext();
 

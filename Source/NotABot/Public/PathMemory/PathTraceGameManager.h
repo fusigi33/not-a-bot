@@ -20,6 +20,7 @@ enum class EPathTraceState : uint8
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPathTraceFinished, bool, bSuccess, float, AccuracyPercent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnRecordedPlayerPathFinished, bool, bSuccess);
 
 UCLASS()
 class NOTABOT_API APathTraceGameManager : public AActor
@@ -44,14 +45,25 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace")
 	float RequiredAccuracyPercent = 60.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace")
+	float PerfectAccuracyDeviation = 50.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace")
+	float AutoPossessDelaySeconds = 1.0f;
+
 	UPROPERTY(BlueprintAssignable)
 	FOnPathTraceFinished OnPathTraceFinished;
+
+	UPROPERTY(BlueprintAssignable, Category="PathTrace|Review")
+	FOnRecordedPlayerPathFinished OnRecordedPlayerPathFinished;
 
 private:
 	UPROPERTY()
 	TObjectPtr<APlayerController> PC;
 
 	EPathTraceState CurrentState = EPathTraceState::Idle;
+	bool bWaitingForRecordedPlayerPath = false;
+	bool bRecordedPlayerPathSuccess = false;
 
 public:
 	UFUNCTION(BlueprintCallable)
@@ -71,6 +83,12 @@ public:
 	);
 
 	float EvaluateAccuracyPercent() const;
+
+	UFUNCTION(BlueprintCallable, Category="PathTrace|Review")
+	void ShowAnswerPath(float LifeTime = -1.f) const;
+
+	UFUNCTION(BlueprintCallable, Category="PathTrace|Review")
+	void ShowRecordedPlayerPath(float Duration = -1.f);
 
 	void EnterPlayerTurn();
 	void FinishMiniGame(bool bSuccess, float AccuracyPercent);

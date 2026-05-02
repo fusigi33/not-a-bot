@@ -5,6 +5,7 @@
 #include "Components/SplineComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
+#include "DrawDebugHelpers.h"
 
 APathTraceBoardActor::APathTraceBoardActor()
 {
@@ -116,6 +117,101 @@ void APathTraceBoardActor::SetupNewRoundSpline(const TArray<FVector>& NewPathPoi
 	GoalTrigger->SetWorldLocation(EndLoc + FVector(0.f, 0.f, 60.f));
 }
 
+void APathTraceBoardActor::ShowAnswerPath(float LifeTime) const
+{
+	if (!GetWorld() || !AnswerSpline)
+	{
+		return;
+	}
+
+	const float SplineLength = GetSplineLength();
+	if (SplineLength <= KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+
+	const float DrawLifeTime = LifeTime >= 0.f ? LifeTime : ReviewPathLifeTime;
+	const float SampleStep = FMath::Max(5.f, ReviewSplineSampleDistance);
+	FVector PrevLocation = GetLocationAtDistance(0.f) + FVector::UpVector * ReviewPathZOffset;
+
+	for (float Distance = SampleStep; Distance < SplineLength; Distance += SampleStep)
+	{
+		const FVector CurrentLocation = GetLocationAtDistance(Distance) + FVector::UpVector * ReviewPathZOffset;
+		DrawDebugLine(GetWorld(), PrevLocation, CurrentLocation, AnswerReviewPathColor, false, DrawLifeTime, 0, ReviewPathThickness);
+		PrevLocation = CurrentLocation;
+	}
+
+	const FVector EndLocation = GetLocationAtDistance(SplineLength) + FVector::UpVector * ReviewPathZOffset;
+	DrawDebugLine(GetWorld(), PrevLocation, EndLocation, AnswerReviewPathColor, false, DrawLifeTime, 0, ReviewPathThickness);
+}
+
+void APathTraceBoardActor::ShowPlayerPath(const TArray<FVector>& PlayerPath, float LifeTime)
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(PlayerPathReplayTimerHandle);
+
+	ReplayPlayerPath = PlayerPath;
+	NextReplayPathIndex = 1;
+	CurrentPlayerPathReplayLifeTime = LifeTime >= 0.f ? LifeTime : ReviewPathLifeTime;
+
+	if (ReplayPlayerPath.Num() < 2)
+	{
+		return;
+	}
+
+	DrawNextPlayerPathSegment();
+
+	if (NextReplayPathIndex < ReplayPlayerPath.Num())
+	{
+		const int32 SegmentCount = ReplayPlayerPath.Num() - 1;
+		const float ReplayInterval = FMath::Max(0.01f, PlayerPathReplayDuration / SegmentCount);
+
+		GetWorldTimerManager().SetTimer(
+			PlayerPathReplayTimerHandle,
+			this,
+			&APathTraceBoardActor::DrawNextPlayerPathSegment,
+			ReplayInterval,
+			true
+		);
+	}
+}
+
+void APathTraceBoardActor::DrawNextPlayerPathSegment()
+{
+	if (!GetWorld() || NextReplayPathIndex <= 0 || NextReplayPathIndex >= ReplayPlayerPath.Num())
+	{
+		if (GetWorld())
+		{
+			GetWorldTimerManager().ClearTimer(PlayerPathReplayTimerHandle);
+		}
+		return;
+	}
+
+	const FVector PathOffset = FVector::UpVector * (ReviewPathZOffset + 8.f);
+
+	DrawDebugLine(
+		GetWorld(),
+		ReplayPlayerPath[NextReplayPathIndex - 1] + PathOffset,
+		ReplayPlayerPath[NextReplayPathIndex] + PathOffset,
+		PlayerReviewPathColor,
+		false,
+		CurrentPlayerPathReplayLifeTime,
+		0,
+		ReviewPathThickness
+	);
+
+	++NextReplayPathIndex;
+
+	if (NextReplayPathIndex >= ReplayPlayerPath.Num())
+	{
+		GetWorldTimerManager().ClearTimer(PlayerPathReplayTimerHandle);
+	}
+}
+
 void APathTraceBoardActor::SetupCaptureTransform()
 {
 	// const FVector Origin = BoardMesh ? BoardMesh->GetComponentLocation() : GetActorLocation();
@@ -145,6 +241,74 @@ float APathTraceBoardActor::GetSplineLength() const
 FVector APathTraceBoardActor::GetLocationAtDistance(float Distance) const
 {
 	return AnswerSpline->GetLocationAtDistanceAlongSpline(Distance, ESplineCoordinateSpace::World);
+}
+
+float APathTraceBoardActor::GetLinearPathLength() const
+{
+	if (!AnswerSpline)
+	{
+		return 0.f;
+	}
+
+	const int32 PointCount = AnswerSpline->GetNumberOfSplinePoints();
+	if (PointCount < 2)
+	{
+		return 0.f;
+	}
+
+	float TotalLength = 0.f;
+	FVector PrevLocation = AnswerSpline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+
+	for (int32 PointIndex = 1; PointIndex < PointCount; ++PointIndex)
+	{
+		const FVector CurrentLocation = AnswerSpline->GetLocationAtSplinePoint(PointIndex, ESplineCoordinateSpace::World);
+		TotalLength += FVector::Distance(PrevLocation, CurrentLocation);
+		PrevLocation = CurrentLocation;
+	}
+
+	return TotalLength;
+}
+
+FVector APathTraceBoardActor::GetLinearLocationAtDistance(float Distance) const
+{
+	if (!AnswerSpline)
+	{
+		return GetActorLocation();
+	}
+
+	const int32 PointCount = AnswerSpline->GetNumberOfSplinePoints();
+	if (PointCount == 0)
+	{
+		return GetActorLocation();
+	}
+
+	FVector PrevLocation = AnswerSpline->GetLocationAtSplinePoint(0, ESplineCoordinateSpace::World);
+	if (PointCount == 1 || Distance <= 0.f)
+	{
+		return PrevLocation;
+	}
+
+	float RemainingDistance = Distance;
+
+	for (int32 PointIndex = 1; PointIndex < PointCount; ++PointIndex)
+	{
+		const FVector CurrentLocation = AnswerSpline->GetLocationAtSplinePoint(PointIndex, ESplineCoordinateSpace::World);
+		const float SegmentLength = FVector::Distance(PrevLocation, CurrentLocation);
+
+		if (SegmentLength > KINDA_SMALL_NUMBER)
+		{
+			if (RemainingDistance <= SegmentLength)
+			{
+				return FMath::Lerp(PrevLocation, CurrentLocation, RemainingDistance / SegmentLength);
+			}
+
+			RemainingDistance -= SegmentLength;
+		}
+
+		PrevLocation = CurrentLocation;
+	}
+
+	return PrevLocation;
 }
 
 float APathTraceBoardActor::GetDistanceAlongSplineAtWorldLocation(const FVector& WorldLocation) const

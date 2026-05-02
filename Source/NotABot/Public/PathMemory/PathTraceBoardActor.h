@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "TimerManager.h"
 #include "PathTraceBoardActor.generated.h"
 
 class USceneComponent;
@@ -91,6 +92,27 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Scoring")
 	float ProjectionSearchForwardDistance = 220.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	float ReviewPathLifeTime = 3.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	float ReviewPathZOffset = 12.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	float ReviewPathThickness = 8.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	float ReviewSplineSampleDistance = 40.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	float PlayerPathReplayDuration = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	FColor AnswerReviewPathColor = FColor::Green;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Review")
+	FColor PlayerReviewPathColor = FColor::Cyan;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Wall")
 	float WallThickness = 40.f;
@@ -105,6 +127,12 @@ public:
 	// 새로운 라운드의 궤적을 세팅하는 함수
 	UFUNCTION(BlueprintCallable, Category="PathTrace|Round")
 	void SetupNewRoundSpline(const TArray<FVector>& NewPathPoints);
+
+	UFUNCTION(BlueprintCallable, Category="PathTrace|Review")
+	void ShowAnswerPath(float LifeTime = -1.f) const;
+
+	UFUNCTION(BlueprintCallable, Category="PathTrace|Review")
+	void ShowPlayerPath(const TArray<FVector>& PlayerPath, float LifeTime = -1.f);
 	
 	void SetupCaptureTransform();
 
@@ -112,6 +140,8 @@ public:
 	FVector GetSplineEndLocation() const;
 	float GetSplineLength() const;
 	FVector GetLocationAtDistance(float Distance) const;
+	float GetLinearPathLength() const;
+	FVector GetLinearLocationAtDistance(float Distance) const;
 	float GetDistanceAlongSplineAtWorldLocation(const FVector& WorldLocation) const;
 
 	// 전체 스플라인을 CheckpointSpacing 간격으로 나누어 FPathCheckpoint 배열을 만들어냅니다.
@@ -139,4 +169,10 @@ public:
 	
 private:
 	void SetupWallCollision(UBoxComponent* Wall);
+	void DrawNextPlayerPathSegment();
+
+	TArray<FVector> ReplayPlayerPath;
+	FTimerHandle PlayerPathReplayTimerHandle;
+	int32 NextReplayPathIndex = 1;
+	float CurrentPlayerPathReplayLifeTime = 0.f;
 };
