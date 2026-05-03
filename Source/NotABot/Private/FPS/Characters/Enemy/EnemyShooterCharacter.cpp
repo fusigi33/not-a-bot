@@ -334,12 +334,47 @@ bool AEnemyShooterCharacter::FireCurrentWeapon(AActor* Target)
 		if (KnifeComponent && IsTargetInKnifeRange(Target))
 		{
 			const FVector AimDir = GetAimDirectionToTarget(Target, false);
+			if (bApplyKnifeDamageFromAnimNotify)
+			{
+				if (KnifeComponent->TryStartUse(this, Start))
+				{
+					PendingKnifeTarget = Target;
+					bKnifeDamagePending = true;
+					return true;
+				}
+
+				return false;
+			}
+
 			return KnifeComponent->TryUse(this, Start, AimDir);
 		}
 		break;
 	}
 
 	return false;
+}
+
+void AEnemyShooterCharacter::ApplyKnifeDamageFromAnimNotify()
+{
+	if (!bKnifeDamagePending || EnemyWeaponType != EWeaponType::Knife || !KnifeComponent)
+	{
+		return;
+	}
+
+	AActor* Target = PendingKnifeTarget.Get();
+	if (!Target || !IsTargetInKnifeRange(Target))
+	{
+		bKnifeDamagePending = false;
+		PendingKnifeTarget = nullptr;
+		return;
+	}
+
+	const FVector Start = GetAttackStartLocation();
+	const FVector AimDir = GetAimDirectionToTarget(Target, false);
+	KnifeComponent->ApplyKnifeDamage(this, Start, AimDir);
+
+	bKnifeDamagePending = false;
+	PendingKnifeTarget = nullptr;
 }
 
 float AEnemyShooterCharacter::GetCurrentAimTime() const

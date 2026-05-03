@@ -92,13 +92,23 @@ bool UWeaponBaseComponent::TryUse(
 	const FVector& Start,
 	const FVector& AimDirection)
 {
+	if (!TryStartUse(User, Start))
+	{
+		return false;
+	}
+
+	PerformUse(User, Start, AimDirection);
+	return true;
+}
+
+bool UWeaponBaseComponent::TryStartUse(AActor* User, const FVector& Start)
+{
 	if (!User || !CanUse())
 	{
 		return false;
 	}
 
 	PlayFireEffects(User, Start);
-	PerformUse(User, Start, AimDirection);
 	LastFireTime = GetWorld()->GetTimeSeconds();
 	return true;
 }

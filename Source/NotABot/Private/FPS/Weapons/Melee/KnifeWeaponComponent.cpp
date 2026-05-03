@@ -18,6 +18,14 @@ void UKnifeWeaponComponent::PerformUse(
 	const FVector& Start,
 	const FVector& AimDirection)
 {
+	ApplyKnifeDamage(User, Start, AimDirection);
+}
+
+void UKnifeWeaponComponent::ApplyKnifeDamage(
+	AActor* User,
+	const FVector& Start,
+	const FVector& AimDirection)
+{
 	if (!GetWorld() || !User)
 	{
 		return;

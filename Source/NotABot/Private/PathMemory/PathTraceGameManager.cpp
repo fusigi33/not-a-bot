@@ -51,6 +51,7 @@ void APathTraceGameManager::StartMiniGame()
 	CurrentState = EPathTraceState::ShowingAnswer;
 
 	PlayerCharacter->SetCanPlayerMove(false);
+	PlayerCharacter->SetPlayerCaptureEnabled(false);
 	PlayerCharacter->ResetRecordedPath();
 
 	// 먼저 보드 상단 perspective scene capture 화면을 보여주는 흐름은
@@ -110,6 +111,7 @@ void APathTraceGameManager::EnterPlayerTurn()
 
 	PC->SetViewTargetWithBlend(PlayerCharacter, 1.0f);
 	PlayerCharacter->ResetRecordedPath();
+	PlayerCharacter->SetPlayerCaptureEnabled(true);
 	PlayerCharacter->SetCanPlayerMove(true);
 }
 
@@ -133,6 +135,7 @@ void APathTraceGameManager::HandleGoalReached(
 	}
 
 	PlayerCharacter->SetCanPlayerMove(false);
+	PlayerCharacter->SetPlayerCaptureEnabled(false);
 
 	const float Accuracy = EvaluateAccuracyPercent();
 	const bool bSuccess = Accuracy >= RequiredAccuracyPercent;
@@ -255,5 +258,9 @@ void APathTraceGameManager::ShowRecordedPlayerPath(float Duration)
 void APathTraceGameManager::FinishMiniGame(bool bSuccess, float AccuracyPercent)
 {
 	CurrentState = EPathTraceState::Result;
+	if (PlayerCharacter)
+	{
+		PlayerCharacter->SetPlayerCaptureEnabled(false);
+	}
 	OnPathTraceFinished.Broadcast(bSuccess, AccuracyPercent);
 }

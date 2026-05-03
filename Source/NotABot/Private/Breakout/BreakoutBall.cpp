@@ -4,19 +4,18 @@
 #include "Breakout/BreakoutBrick.h"
 #include "Breakout/BreakoutGameManager.h"
 #include "Breakout/BreakoutPaddle.h"
-#include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "GameFramework/ProjectileMovementComponent.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogBreakoutBall, Log, All);
 
 ABreakoutBall::ABreakoutBall()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	RootScene = CreateDefaultSubobject<USceneComponent>(TEXT("RootScene"));
-	SetRootComponent(RootScene);
-
 	CollisionSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CollisionSphere"));
-	CollisionSphere->SetupAttachment(RootScene);
+	SetRootComponent(CollisionSphere);
 	CollisionSphere->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	CollisionSphere->SetCollisionObjectType(ECC_WorldDynamic);
 	CollisionSphere->SetCollisionResponseToAllChannels(ECR_Block);
@@ -27,6 +26,18 @@ ABreakoutBall::ABreakoutBall()
 	VisualMesh->SetupAttachment(CollisionSphere);
 	VisualMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
+	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileMovement"));
+	ProjectileMovement->UpdatedComponent = CollisionSphere;
+	ProjectileMovement->InitialSpeed = InitialSpeed;
+	ProjectileMovement->MaxSpeed = MaxSpeed;
+	ProjectileMovement->bShouldBounce = true;
+	ProjectileMovement->Bounciness = 1.0f;
+	ProjectileMovement->Friction = 0.0f;
+	ProjectileMovement->ProjectileGravityScale = 0.0f;
+	ProjectileMovement->bRotationFollowsVelocity = false;
+	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
+	ProjectileMovement->bAutoActivate = false;
+
 	InitialDirection = InitialDirection.GetSafeNormal();
 }
 
@@ -34,6 +45,12 @@ void ABreakoutBall::BeginPlay()
 {
 	Super::BeginPlay();
 	SpawnLocation = GetActorLocation();
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->OnProjectileBounce.AddDynamic(this, &ABreakoutBall::HandleProjectileBounce);
+	}
+
 	ResetBall();
 }
 
@@ -41,11 +58,7 @@ void ABreakoutBall::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	TimeSinceLastHit += DeltaSeconds;
-
-	if (bBallActive)
-	{
-		MoveBall(DeltaSeconds);
-	}
+	MaintainMinimumSpeed();
 }
 
 void ABreakoutBall::LaunchBall()
@@ -58,6 +71,12 @@ void ABreakoutBall::LaunchBall()
 	Velocity = InitialDirection.GetSafeNormal() * InitialSpeed;
 	ClampTravelDirection();
 	bBallActive = true;
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->Velocity = Velocity;
+		ProjectileMovement->Activate(true);
+	}
 }
 
 void ABreakoutBall::ResetBall()
@@ -66,6 +85,12 @@ void ABreakoutBall::ResetBall()
 	LastHitActor.Reset();
 	TimeSinceLastHit = BIG_NUMBER;
 	Velocity = FVector::ZeroVector;
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+	}
 
 	if (Paddle)
 	{
@@ -76,14 +101,18 @@ void ABreakoutBall::ResetBall()
 	{
 		SetActorLocation(SpawnLocation);
 	}
-
-	LaunchBall();
 }
 
 void ABreakoutBall::StopBall()
 {
 	bBallActive = false;
 	Velocity = FVector::ZeroVector;
+
+	if (ProjectileMovement)
+	{
+		ProjectileMovement->StopMovementImmediately();
+		ProjectileMovement->Deactivate();
+	}
 }
 
 void ABreakoutBall::HandleKillZoneOverlap()
@@ -98,28 +127,29 @@ void ABreakoutBall::HandleKillZoneOverlap()
 	}
 }
 
-void ABreakoutBall::MoveBall(float DeltaSeconds)
+FVector ABreakoutBall::GetBallVelocity() const
 {
-	constexpr int32 MaxBouncesPerTick = 4;
-	float RemainingTime = DeltaSeconds;
-	int32 Iteration = 0;
-
-	while (RemainingTime > KINDA_SMALL_NUMBER && Iteration < MaxBouncesPerTick && bBallActive)
+	if (ProjectileMovement)
 	{
-		const FVector DeltaMove = Velocity * RemainingTime;
-		FHitResult Hit;
-		AddActorWorldOffset(DeltaMove, true, &Hit);
-
-		if (!Hit.bBlockingHit)
-		{
-			break;
-		}
-
-		const float TimeUsed = RemainingTime * Hit.Time;
-		RemainingTime -= TimeUsed;
-		HandleBlockingHit(Hit);
-		Iteration++;
+		return ProjectileMovement->Velocity;
 	}
+
+	return Velocity;
+}
+
+void ABreakoutBall::HandleProjectileBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity)
+{
+	UE_LOG(
+		LogBreakoutBall,
+		Verbose,
+		TEXT("Projectile bounce: Actor=%s ImpactSpeed=%.2f CurrentProjectileSpeed=%.2f Velocity=%s"),
+		*GetNameSafe(ImpactResult.GetActor()),
+		ImpactVelocity.Size(),
+		ProjectileMovement ? ProjectileMovement->Velocity.Size() : 0.0f,
+		*ImpactVelocity.ToString());
+
+	Velocity = ImpactVelocity;
+	HandleBlockingHit(ImpactResult);
 }
 
 void ABreakoutBall::HandleBlockingHit(const FHitResult& Hit)
@@ -150,7 +180,22 @@ void ABreakoutBall::HandleBlockingHit(const FHitResult& Hit)
 	}
 	else
 	{
-		HandleGenericBounce(Hit);
+		Velocity = ProjectileMovement ? ProjectileMovement->Velocity : Velocity;
+		ClampTravelDirection();
+	}
+
+	if (ProjectileMovement)
+	{
+		UE_LOG(
+			LogBreakoutBall,
+			Verbose,
+			TEXT("Post bounce velocity: Actor=%s Speed=%.2f Velocity=%s"),
+			*GetNameSafe(HitActor),
+			Velocity.Size(),
+			*Velocity.ToString());
+
+		ProjectileMovement->Velocity = Velocity;
+		ProjectileMovement->UpdateComponentVelocity();
 	}
 
 	LastHitActor = HitActor;
@@ -163,41 +208,83 @@ void ABreakoutBall::HandlePaddleBounce(ABreakoutPaddle* HitPaddle, const FHitRes
 	const float NewSpeed = FMath::Min(GetCurrentSpeed() + SpeedIncreasePerPaddleHit, MaxSpeed);
 
 	Velocity = NewDirection * NewSpeed;
-	SetActorLocation(Hit.ImpactPoint + (NewDirection * SurfaceSeparationDistance));
+	ClampTravelDirection();
 }
 
-void ABreakoutBall::HandleGenericBounce(const FHitResult& Hit)
+void ABreakoutBall::MaintainMinimumSpeed()
 {
-	const FVector ReflectedDirection = FVector::VectorPlaneProject(
-		FMath::GetReflectionVector(Velocity.GetSafeNormal(), Hit.ImpactNormal.GetSafeNormal()),
-		FVector::RightVector ^ FVector::UpVector).GetSafeNormal();
+	if (!bBallActive || !ProjectileMovement)
+	{
+		return;
+	}
 
-	Velocity = ReflectedDirection * GetCurrentSpeed();
-	ClampTravelDirection();
-	SetActorLocation(Hit.ImpactPoint + (Velocity.GetSafeNormal() * SurfaceSeparationDistance));
+	const FVector CurrentVelocity = ProjectileMovement->Velocity;
+	const float CurrentSpeedSquared = CurrentVelocity.SizeSquared();
+	constexpr float SpeedCorrectionTolerance = 0.5f;
+	const float MinimumCorrectableSpeed = FMath::Max(InitialSpeed - SpeedCorrectionTolerance, 0.0f);
+	if (CurrentSpeedSquared >= FMath::Square(MinimumCorrectableSpeed))
+	{
+		Velocity = CurrentVelocity;
+		return;
+	}
+
+	FVector Direction = CurrentVelocity.GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		Direction = Velocity.GetSafeNormal();
+	}
+	if (Direction.IsNearlyZero())
+	{
+		Direction = InitialDirection.GetSafeNormal();
+	}
+
+	UE_LOG(
+		LogBreakoutBall,
+		Warning,
+		TEXT("Ball speed below InitialSpeed. CurrentSpeed=%.4f InitialSpeed=%.4f Tolerance=%.4f ProjectileVelocity=%s CachedVelocity=%s CorrectedDirection=%s"),
+		FMath::Sqrt(CurrentSpeedSquared),
+		InitialSpeed,
+		SpeedCorrectionTolerance,
+		*CurrentVelocity.ToString(),
+		*Velocity.ToString(),
+		*Direction.ToString());
+
+	Velocity = Direction * InitialSpeed;
+	ProjectileMovement->Velocity = Velocity;
+	ProjectileMovement->UpdateComponentVelocity();
 }
 
 void ABreakoutBall::ClampTravelDirection()
 {
 	FVector Direction = Velocity.GetSafeNormal();
-
-	if (Direction.Z < 0.0f && FMath::Abs(Direction.Z) < (1.0f - MaxHorizontalRatio))
+	if (Direction.IsNearlyZero())
 	{
-		Direction.Z = -FMath::Max(FMath::Abs(Direction.Z), 1.0f - MaxHorizontalRatio);
-	}
-	else if (Direction.Z > 0.0f && FMath::Abs(Direction.Z) < (1.0f - MaxHorizontalRatio))
-	{
-		Direction.Z = FMath::Max(FMath::Abs(Direction.Z), 1.0f - MaxHorizontalRatio);
+		Direction = InitialDirection.GetSafeNormal();
 	}
 
-	if (FMath::Abs(Direction.Z) > MaxVerticalRatio)
+	const float HorizontalSign = FMath::IsNearlyZero(Direction.Y) ? 1.0f : FMath::Sign(Direction.Y);
+	const float VerticalSign = FMath::IsNearlyZero(Direction.Z) ? FMath::Sign(InitialDirection.Z) : FMath::Sign(Direction.Z);
+	float MinAngleRadians = FMath::Max(
+		FMath::DegreesToRadians(MinLaunchAngleDegrees),
+		FMath::Acos(FMath::Clamp(MaxVerticalRatio, 0.0f, 1.0f)));
+	float MaxAngleRadians = FMath::Min(
+		FMath::DegreesToRadians(MaxLaunchAngleDegrees),
+		FMath::Asin(FMath::Clamp(MaxHorizontalRatio, 0.0f, 1.0f)));
+	if (MinAngleRadians > MaxAngleRadians)
 	{
-		Direction.Z = FMath::Sign(Direction.Z) * MaxVerticalRatio;
+		const float FallbackAngleRadians = (MinAngleRadians + MaxAngleRadians) * 0.5f;
+		MinAngleRadians = FallbackAngleRadians;
+		MaxAngleRadians = FallbackAngleRadians;
 	}
 
-	Direction.X = FMath::Clamp(Direction.X, -MaxHorizontalRatio, MaxHorizontalRatio);
-	Direction.Y = 0.0f;
-	Direction.Normalize();
+	const float ClampedAngleRadians = FMath::Clamp(
+		FMath::Atan2(FMath::Abs(Direction.Y), FMath::Abs(Direction.Z)),
+		MinAngleRadians,
+		MaxAngleRadians);
+
+	Direction.X = 0.0f;
+	Direction.Y = FMath::Sin(ClampedAngleRadians) * HorizontalSign;
+	Direction.Z = FMath::Cos(ClampedAngleRadians) * VerticalSign;
 	Velocity = Direction * FMath::Clamp(GetCurrentSpeed(), InitialSpeed, MaxSpeed);
 }
 
@@ -213,16 +300,15 @@ FVector ABreakoutBall::BuildPaddleBounceDirection(const ABreakoutPaddle* HitPadd
 	const float HorizontalMagnitude = FMath::Sin(LaunchAngle) * HorizontalSign;
 	const float VerticalMagnitude = FMath::Cos(LaunchAngle);
 
-	FVector BounceDirection(HorizontalMagnitude, 0.0f, FMath::Abs(VerticalMagnitude));
-	if (FMath::IsNearlyZero(BounceDirection.X, KINDA_SMALL_NUMBER))
+	FVector BounceDirection(0.0f, HorizontalMagnitude, FMath::Abs(VerticalMagnitude));
+	if (FMath::IsNearlyZero(BounceDirection.Y, KINDA_SMALL_NUMBER))
 	{
-		const float ExistingHorizontal = FMath::Sign(Velocity.X);
-		BounceDirection.X = FMath::Sin(MinAngleRadians) * (ExistingHorizontal == 0.0f ? 1.0f : ExistingHorizontal);
+		const float ExistingHorizontal = FMath::Sign(Velocity.Y);
+		BounceDirection.Y = FMath::Sin(MinAngleRadians) * (ExistingHorizontal == 0.0f ? 1.0f : ExistingHorizontal);
 		BounceDirection.Z = FMath::Cos(MinAngleRadians);
 	}
 
-	BounceDirection.Normalize();
-	return BounceDirection;
+	return BounceDirection.GetSafeNormal();
 }
 
 float ABreakoutBall::GetCurrentSpeed() const

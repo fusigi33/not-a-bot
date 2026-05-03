@@ -1,5 +1,6 @@
 #include "FPS/AI/EnemyShooterAIController.h"
 
+#include "FPS/Characters/Player/FPSPlayerCharacter.h"
 #include "Perception/AIPerceptionComponent.h"
 #include "Perception/AISenseConfig_Sight.h"
 
@@ -24,7 +25,7 @@ AEnemyShooterAIController::AEnemyShooterAIController()
 
 void AEnemyShooterAIController::OnTargetPerceptionUpdated(AActor* Actor, FAIStimulus Stimulus)
 {
-	if (!Actor)
+	if (!Cast<AFPSPlayerCharacter>(Actor))
 	{
 		return;
 	}

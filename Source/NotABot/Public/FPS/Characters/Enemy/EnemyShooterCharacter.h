@@ -35,10 +35,14 @@ class NOTABOT_API AEnemyShooterCharacter : public AFPSCombatCharacter
 
 public:
 	AEnemyShooterCharacter();
+	
+	virtual void Tick(float DeltaSeconds) override;
+
+	UFUNCTION(BlueprintCallable, Category="AI|Attack")
+	void ApplyKnifeDamageFromAnimNotify();
 
 protected:
 	virtual void BeginPlay() override;
-	virtual void Tick(float DeltaSeconds) override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Weapon")
 	UShotgunComponent* ShotgunComponent;
@@ -111,6 +115,9 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI|Knife")
 	float KnifeAttackRange = 180.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="AI|Knife")
+	bool bApplyKnifeDamageFromAnimNotify = false;
+
 	// 상태용 시간값
 	float StateStartTime = 0.f;
 	float LastSeenTargetTime = -100.f;
@@ -119,6 +126,8 @@ protected:
 
 	int32 BurstShotsFired = 0;
 	TWeakObjectPtr<AActor> RecognizedTarget;
+	TWeakObjectPtr<AActor> PendingKnifeTarget;
+	bool bKnifeDamagePending = false;
 
 	void HandleInitialPose();
 

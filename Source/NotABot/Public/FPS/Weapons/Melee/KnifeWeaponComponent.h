@@ -12,6 +12,9 @@ class NOTABOT_API UKnifeWeaponComponent : public UWeaponBaseComponent
 public:
 	UKnifeWeaponComponent();
 
+	UFUNCTION(BlueprintCallable, Category="Knife")
+	void ApplyKnifeDamage(AActor* User, const FVector& Start, const FVector& AimDirection);
+
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Knife")
 	float AttackRadius = 35.f;

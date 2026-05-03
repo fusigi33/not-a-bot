@@ -6,6 +6,7 @@
 
 class ABreakoutBall;
 class UBoxComponent;
+class UNiagaraSystem;
 class UStaticMeshComponent;
 
 UCLASS()
@@ -19,9 +20,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Breakout|Brick")
 	void HandleBallHit(ABreakoutBall* Ball);
 
+	UFUNCTION(BlueprintPure, Category="Breakout|Brick")
+	FVector GetBrickSize() const;
+
 protected:
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
-	TObjectPtr<USceneComponent> RootScene;
+	void PlayBreakEffect() const;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<UBoxComponent> CollisionBox;
@@ -31,4 +34,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Brick", meta=(ClampMin="1"))
 	int32 HitPoints = 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Effects")
+	TObjectPtr<UNiagaraSystem> BreakEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Effects")
+	FVector BreakEffectScale = FVector(1.0f);
 };

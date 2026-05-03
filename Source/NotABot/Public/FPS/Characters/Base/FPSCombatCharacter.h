@@ -38,6 +38,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Weapon")
 	TSubclassOf<class AActor> WeaponClass;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Weapon")
+	FName WeaponAttachSocketName = TEXT("hand_rSocket");
+
 	UPROPERTY()
 	AActor* EquippedWeapon;
 

@@ -29,9 +29,6 @@ protected:
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
-	TObjectPtr<USceneComponent> RootScene;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<UBoxComponent> CollisionBox;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Boundary")

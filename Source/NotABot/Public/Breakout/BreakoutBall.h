@@ -8,6 +8,7 @@ class ABreakoutBoundary;
 class ABreakoutBrick;
 class ABreakoutGameManager;
 class ABreakoutPaddle;
+class UProjectileMovementComponent;
 class USphereComponent;
 class UStaticMeshComponent;
 
@@ -31,7 +32,7 @@ public:
 	void StopBall();
 
 	UFUNCTION(BlueprintPure, Category="Breakout|Ball")
-	FVector GetBallVelocity() const { return Velocity; }
+	FVector GetBallVelocity() const;
 
 	UFUNCTION(BlueprintCallable, Category="Breakout|Ball")
 	void HandleKillZoneOverlap();
@@ -43,19 +44,19 @@ protected:
 	virtual void BeginPlay() override;
 	
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
-	TObjectPtr<USceneComponent> RootScene;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<USphereComponent> CollisionSphere;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<UStaticMeshComponent> VisualMesh;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
+	TObjectPtr<UProjectileMovementComponent> ProjectileMovement;
+
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Breakout|References")
 	TObjectPtr<ABreakoutPaddle> Paddle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Launch")
-	FVector InitialDirection = FVector(0.35f, 0.0f, 1.0f);
+	FVector InitialDirection = FVector(0.0f, 0.35f, 1.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Speed", meta=(ClampMin="1.0"))
 	float InitialSpeed = 950.0f;
@@ -94,10 +95,12 @@ private:
 	float TimeSinceLastHit = BIG_NUMBER;
 	TWeakObjectPtr<AActor> LastHitActor;
 
-	void MoveBall(float DeltaSeconds);
+	UFUNCTION()
+	void HandleProjectileBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity);
+
 	void HandleBlockingHit(const FHitResult& Hit);
 	void HandlePaddleBounce(ABreakoutPaddle* HitPaddle, const FHitResult& Hit);
-	void HandleGenericBounce(const FHitResult& Hit);
+	void MaintainMinimumSpeed();
 	void ClampTravelDirection();
 	FVector BuildPaddleBounceDirection(const ABreakoutPaddle* HitPaddle, const FHitResult& Hit) const;
 	float GetCurrentSpeed() const;

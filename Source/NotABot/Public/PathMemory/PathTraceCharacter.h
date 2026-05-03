@@ -64,6 +64,7 @@ private:
 
 public:
 	void SetCanPlayerMove(bool bEnable);
+	void SetPlayerCaptureEnabled(bool bEnable);
 	void ResetRecordedPath();
 
 	const TArray<FVector>& GetRecordedPath() const { return RecordedPath; }

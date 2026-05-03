@@ -30,8 +30,10 @@ APathTraceCharacter::APathTraceCharacter()
 	
 	PlayerCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("PlayerCapture"));
 	PlayerCapture->SetupAttachment(SpringArm, USpringArmComponent::SocketName);
-	PlayerCapture->bCaptureEveryFrame = true;
+	PlayerCapture->bCaptureEveryFrame = false;
+	PlayerCapture->bCaptureOnMovement = false;
 	PlayerCapture->FOVAngle = 95.0f;
+	PlayerCapture->SetAutoActivate(false);
 
 	bUseControllerRotationYaw = false;
 	GetCharacterMovement()->bOrientRotationToMovement = true;
@@ -41,6 +43,7 @@ void APathTraceCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+	SetPlayerCaptureEnabled(false);
 	ResetRecordedPath();
 	RegisterMappingContext();
 }
@@ -217,6 +220,19 @@ void APathTraceCharacter::SetCanPlayerMove(bool bEnable)
 	{
 		ForceHideMouseCursor();
 	}
+}
+
+void APathTraceCharacter::SetPlayerCaptureEnabled(bool bEnable)
+{
+	if (!PlayerCapture)
+	{
+		return;
+	}
+
+	PlayerCapture->bCaptureEveryFrame = bEnable;
+	PlayerCapture->bCaptureOnMovement = bEnable;
+	PlayerCapture->SetComponentTickEnabled(bEnable);
+	PlayerCapture->SetActive(bEnable);
 }
 
 void APathTraceCharacter::ResetRecordedPath()

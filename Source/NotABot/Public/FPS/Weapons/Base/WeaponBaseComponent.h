@@ -64,6 +64,9 @@ public:
 		const FVector& Start,
 		const FVector& AimDirection);
 
+	UFUNCTION(BlueprintCallable, Category="Weapon")
+	bool TryStartUse(AActor* User, const FVector& Start);
+
 protected:
 	virtual void PerformUse(
 		AActor* User,

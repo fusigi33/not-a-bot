@@ -7,6 +7,7 @@
 
 class UBoxComponent;
 class UFloatingPawnMovement;
+class ABreakoutGameManager;
 class UInputAction;
 class UInputMappingContext;
 class UStaticMeshComponent;
@@ -37,9 +38,6 @@ protected:
 	void ApplyMovement(float DeltaSeconds);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
-	TObjectPtr<USceneComponent> RootScene;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<UBoxComponent> CollisionBox;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
@@ -66,8 +64,23 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Reflection")
 	FVector UpDirection = FVector::UpVector;
 
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Breakout|References")
+	TObjectPtr<ABreakoutGameManager> GameManager;
+
 private:
 	FVector InitialLocation = FVector::ZeroVector;
 	float CurrentInput = 0.0f;
 	float SmoothedInput = 0.0f;
+
+	bool CanMove() const;
+	void FindGameManagerIfMissing();
+
+	UFUNCTION()
+	void OnPaddleBeginOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult);
 };

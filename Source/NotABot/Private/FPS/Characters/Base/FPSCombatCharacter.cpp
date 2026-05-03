@@ -32,7 +32,7 @@ void AFPSCombatCharacter::RestoreEquippedWeaponAttachment()
 		EquippedWeapon->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
-			TEXT("hand_rSocket"));
+			WeaponAttachSocketName);
 	}
 }
 
