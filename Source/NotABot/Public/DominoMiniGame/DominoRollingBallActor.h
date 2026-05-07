@@ -6,6 +6,7 @@
 #include "DominoRollingBallActor.generated.h"
 
 class ADominoBlockActor;
+class USoundBase;
 class UStaticMeshComponent;
 
 /**
@@ -66,6 +67,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Rolling Ball|Physics")
 	bool bWakeOnSimulationStart = false;
 
+	/** 도미노 블록과 충돌할 때 재생할 효과음입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Rolling Ball|Audio")
+	TObjectPtr<USoundBase> DominoBlockCollisionSFX;
+
+	/** 다른 롤링 볼과 충돌할 때 재생할 효과음입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Rolling Ball|Audio")
+	TObjectPtr<USoundBase> RollingBallCollisionSFX;
+
+	/** 충돌 효과음이 반복 재생되는 것을 막는 짧은 대기 시간입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Rolling Ball|Audio", meta = (ClampMin = "0.0"))
+	float CollisionSFXCooldown = 0.08f;
+
+	/** 이 상대 속도보다 느린 충돌은 효과음을 재생하지 않습니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Rolling Ball|Audio", meta = (ClampMin = "0.0"))
+	float MinimumCollisionSFXRelativeSpeed = 10.0f;
+
 	UFUNCTION(BlueprintCallable, Category = "Domino Rolling Ball")
 	void SetBallPhysicsEnabled(bool bEnabled);
 
@@ -81,10 +98,17 @@ protected:
 
 	void ApplyBallSettings() const;
 	bool ShouldReactToHit(AActor* OtherActor, UPrimitiveComponent* OtherComp) const;
+	bool IsDominoBlockHit(AActor* OtherActor, UPrimitiveComponent* OtherComp) const;
+	bool IsRollingBallHit(AActor* OtherActor, UPrimitiveComponent* OtherComp) const;
+	bool HasEnoughCollisionSFXSpeed(UPrimitiveComponent* OtherComp, const FVector& ImpactPoint) const;
+	void TryPlayCollisionSFX(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& ImpactPoint);
+	void PlaySFX(USoundBase* Sound, const FVector& Location) const;
 
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Domino Rolling Ball")
 	bool bSimulationEnabled = false;
 
 	FTransform InitialTransform = FTransform::Identity;
 	float LastHitImpulseTime = -FLT_MAX;
+	float LastDominoBlockCollisionSFXTime = -FLT_MAX;
+	float LastRollingBallCollisionSFXTime = -FLT_MAX;
 };

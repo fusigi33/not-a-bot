@@ -7,6 +7,7 @@
 
 class USceneComponent;
 class UBoxComponent;
+class USoundBase;
 class UStaticMeshComponent;
 
 /**
@@ -169,6 +170,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Seesaw Ram|Motion", meta = (ClampMin = "0.1"))
 	float TiltInterpSpeed = 12.0f;
 
+	/** 반대편 바구니의 공을 발사할 때 재생할 효과음입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino Seesaw Ram|Audio")
+	TObjectPtr<USoundBase> LaunchSFX;
+
 	/**
 	 * 충돌한 바구니의 반대편 바구니에 있는 공을 발사합니다.
 	 *
@@ -256,6 +261,9 @@ protected:
 	 * @return LaunchAngleDegrees와 LaunchSpeed를 반영한 월드 공간 속도입니다.
 	 */
 	FVector BuildLaunchVelocity(EDominoSeesawBasketSide LaunchSide) const;
+
+	/** 지정한 위치에서 효과음을 재생합니다. */
+	void PlaySFX(USoundBase* Sound, const FVector& Location) const;
 
 	/** 현재 배치 설정값을 바구니 메시 위치에 반영합니다. */
 	void ApplyLayout();

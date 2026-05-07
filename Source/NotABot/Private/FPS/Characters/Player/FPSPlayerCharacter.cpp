@@ -13,6 +13,7 @@
 #include "InputActionValue.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 AFPSPlayerCharacter::AFPSPlayerCharacter()
 {
@@ -127,6 +128,22 @@ void AFPSPlayerCharacter::Respawn()
 	RestoreEquippedWeaponAttachment();
 
 	InitializeActor();
+}
+
+float AFPSPlayerCharacter::TakeDamage(
+	float DamageAmount,
+	FDamageEvent const& DamageEvent,
+	AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	const float AppliedDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+	if (AppliedDamage > 0.f && DamagedSFX)
+	{
+		UGameplayStatics::PlaySound2D(this, DamagedSFX);
+	}
+
+	return AppliedDamage;
 }
 
 void AFPSPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)

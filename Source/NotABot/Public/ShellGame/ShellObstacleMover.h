@@ -6,6 +6,7 @@
 #include "ShellObstacleMover.generated.h"
 
 class USceneComponent;
+class USoundBase;
 class UStaticMeshComponent;
 class USplineComponent;
 
@@ -47,6 +48,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shell Game")
 	FShellObstacleMovementSettings MovementSettings;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shell Game|Audio")
+	TObjectPtr<USoundBase> MovementStartSFX;
 
 private:
 	bool bMovementActive = false;

@@ -3,6 +3,7 @@
 #include "DominoMiniGame/DominoBlockActor.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "Kismet/GameplayStatics.h"
 #include "UObject/ConstructorHelpers.h"
 
 ADominoRollingBallActor::ADominoRollingBallActor()
@@ -65,6 +66,8 @@ void ADominoRollingBallActor::ResetDominoSimulationObject_Implementation()
 {
 	bSimulationEnabled = false;
 	LastHitImpulseTime = -FLT_MAX;
+	LastDominoBlockCollisionSFXTime = -FLT_MAX;
+	LastRollingBallCollisionSFXTime = -FLT_MAX;
 	SetBallPhysicsEnabled(false);
 	SetActorTransform(InitialTransform, false, nullptr, ETeleportType::TeleportPhysics);
 }
@@ -117,7 +120,20 @@ void ADominoRollingBallActor::ApplyDominoHitImpulse(const FVector& HitLocation, 
 
 void ADominoRollingBallActor::HandleBallHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
-	if (!bSimulationEnabled || !OtherComp || !ShouldReactToHit(OtherActor, OtherComp))
+	if (!bSimulationEnabled || !OtherComp)
+	{
+		return;
+	}
+
+	FVector ImpactPoint = Hit.ImpactPoint;
+	if (ImpactPoint.IsNearlyZero())
+	{
+		ImpactPoint = BallMesh ? BallMesh->GetComponentLocation() : GetActorLocation();
+	}
+
+	TryPlayCollisionSFX(OtherActor, OtherComp, ImpactPoint);
+
+	if (!ShouldReactToHit(OtherActor, OtherComp))
 	{
 		return;
 	}
@@ -127,12 +143,6 @@ void ADominoRollingBallActor::HandleBallHit(UPrimitiveComponent* HitComponent, A
 	if (CurrentTime - LastHitImpulseTime < HitImpulseCooldown)
 	{
 		return;
-	}
-
-	FVector ImpactPoint = Hit.ImpactPoint;
-	if (ImpactPoint.IsNearlyZero())
-	{
-		ImpactPoint = BallMesh ? BallMesh->GetComponentLocation() : GetActorLocation();
 	}
 
 	const FVector IncomingVelocity = OtherComp->GetPhysicsLinearVelocityAtPoint(ImpactPoint);
@@ -175,10 +185,94 @@ bool ADominoRollingBallActor::ShouldReactToHit(AActor* OtherActor, UPrimitiveCom
 		return true;
 	}
 
+	return IsDominoBlockHit(OtherActor, OtherComp);
+}
+
+bool ADominoRollingBallActor::IsDominoBlockHit(AActor* OtherActor, UPrimitiveComponent* OtherComp) const
+{
 	if (Cast<ADominoBlockActor>(OtherActor))
 	{
 		return true;
 	}
 
 	return OtherComp && Cast<ADominoBlockActor>(OtherComp->GetOwner());
+}
+
+bool ADominoRollingBallActor::IsRollingBallHit(AActor* OtherActor, UPrimitiveComponent* OtherComp) const
+{
+	if (OtherActor == this)
+	{
+		return false;
+	}
+
+	if (Cast<ADominoRollingBallActor>(OtherActor))
+	{
+		return true;
+	}
+
+	return OtherComp && Cast<ADominoRollingBallActor>(OtherComp->GetOwner());
+}
+
+bool ADominoRollingBallActor::HasEnoughCollisionSFXSpeed(UPrimitiveComponent* OtherComp, const FVector& ImpactPoint) const
+{
+	if (!OtherComp)
+	{
+		return false;
+	}
+
+	const FVector MyVelocity = BallMesh ? BallMesh->GetPhysicsLinearVelocityAtPoint(ImpactPoint) : FVector::ZeroVector;
+	const FVector OtherVelocity = OtherComp->GetPhysicsLinearVelocityAtPoint(ImpactPoint);
+	return (MyVelocity - OtherVelocity).Size() >= MinimumCollisionSFXRelativeSpeed;
+}
+
+void ADominoRollingBallActor::TryPlayCollisionSFX(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& ImpactPoint)
+{
+	if (!HasEnoughCollisionSFXSpeed(OtherComp, ImpactPoint))
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	const float CurrentTime = World ? World->GetTimeSeconds() : 0.0f;
+
+	if (IsDominoBlockHit(OtherActor, OtherComp))
+	{
+		if (CurrentTime - LastDominoBlockCollisionSFXTime < CollisionSFXCooldown)
+		{
+			return;
+		}
+
+		LastDominoBlockCollisionSFXTime = CurrentTime;
+		PlaySFX(DominoBlockCollisionSFX, ImpactPoint);
+		return;
+	}
+
+	if (!IsRollingBallHit(OtherActor, OtherComp))
+	{
+		return;
+	}
+
+	const AActor* OtherOwner = OtherActor ? OtherActor : OtherComp->GetOwner();
+	if (OtherOwner && OtherOwner->GetUniqueID() < GetUniqueID())
+	{
+		return;
+	}
+
+	if (CurrentTime - LastRollingBallCollisionSFXTime < CollisionSFXCooldown)
+	{
+		return;
+	}
+
+	LastRollingBallCollisionSFXTime = CurrentTime;
+	PlaySFX(RollingBallCollisionSFX, ImpactPoint);
+}
+
+void ADominoRollingBallActor::PlaySFX(USoundBase* Sound, const FVector& Location) const
+{
+	if (!Sound)
+	{
+		return;
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, Sound, Location);
 }

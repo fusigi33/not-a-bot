@@ -4,6 +4,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "Kismet/GameplayStatics.h"
 #include "PhysicsEngine/BodyInstance.h"
 #include "TimerManager.h"
 
@@ -235,6 +236,7 @@ bool ADominoSeesawBatteringRamActor::TryLaunchOppositeBasket(EDominoSeesawBasket
 	// 반대편 공에 포물선 초기 속도를 직접 부여해 즉시 발사합니다.
 	BallToLaunch->SetPhysicsLinearVelocity(BuildLaunchVelocity(LaunchSide), false, NAME_None);
 	BallToLaunch->WakeAllRigidBodies();
+	PlaySFX(LaunchSFX, BallToLaunch->GetComponentLocation());
 
 	// 충돌 방향에 맞춰 막대 기울기 목표를 정하고 연출 Tick을 시작합니다.
 	TargetBeamRoll = ImpactSide == EDominoSeesawBasketSide::Left ? -MaxTiltDegrees : MaxTiltDegrees;
@@ -385,6 +387,16 @@ FVector ADominoSeesawBatteringRamActor::BuildLaunchVelocity(EDominoSeesawBasketS
 	const float VerticalSpeed = FMath::Sin(AngleRadians) * LaunchSpeed;
 
 	return GetLaunchHorizontalDirection(LaunchSide) * HorizontalSpeed + FVector::UpVector * VerticalSpeed;
+}
+
+void ADominoSeesawBatteringRamActor::PlaySFX(USoundBase* Sound, const FVector& Location) const
+{
+	if (!Sound)
+	{
+		return;
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, Sound, Location);
 }
 
 void ADominoSeesawBatteringRamActor::ApplyLayout()

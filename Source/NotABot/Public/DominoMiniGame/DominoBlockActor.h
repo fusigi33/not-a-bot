@@ -6,6 +6,7 @@
 #include "DominoBlockActor.generated.h"
 
 class UBoxComponent;
+class USoundBase;
 
 /**
  * 월드에 배치되는 물리 도미노 블록 액터입니다.
@@ -73,6 +74,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino|Physics", meta = (ClampMin = "-1.0", ClampMax = "1.0"))
 	float FallenDotThreshold = 0.5f;
 
+	/** 다른 도미노 블록과 충돌할 때 재생할 효과음입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino|Audio")
+	TObjectPtr<USoundBase> DominoCollisionSFX;
+
+	/** 이 상대 속도보다 느린 도미노 충돌은 효과음을 재생하지 않습니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino|Audio", meta = (ClampMin = "0.0"))
+	float MinimumDominoCollisionSFXSpeed = 10.0f;
+
 	/** 일반 배치 완료 도미노에 사용할 머티리얼입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino|Material")
 	TObjectPtr<UMaterialInterface> NormalMaterial;
@@ -92,10 +101,18 @@ public:
 protected:
 	virtual void BeginPlay() override;
 
+	UFUNCTION()
+	void HandleMeshHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+
 	/** 최초 배치 트랜스폼입니다. Reset에서 사용합니다. */
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadOnly, Category = "Domino")
 	FTransform InitialTransform;
 
 	/** 미리보기/일반 상태에 맞는 머티리얼을 적용합니다. */
 	void ApplyMaterial(UMaterialInterface* Material);
+
+	bool ShouldPlayDominoCollisionSFX(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& ImpactPoint) const;
+	void PlaySFX(USoundBase* Sound, const FVector& Location) const;
+
+	bool bHasPlayedDominoCollisionSFX = false;
 };

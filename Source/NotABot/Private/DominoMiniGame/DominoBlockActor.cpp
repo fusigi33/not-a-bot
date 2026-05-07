@@ -1,6 +1,7 @@
 #include "DominoMiniGame/DominoBlockActor.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 ADominoBlockActor::ADominoBlockActor()
 {
@@ -13,6 +14,7 @@ ADominoBlockActor::ADominoBlockActor()
 	MeshComponent->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	MeshComponent->SetCollisionObjectType(ECC_WorldDynamic);
 	MeshComponent->SetCollisionResponseToAllChannels(ECR_Block);
+	MeshComponent->SetNotifyRigidBodyCollision(true);
 	MeshComponent->SetSimulatePhysics(false);
 	MeshComponent->SetEnableGravity(false);
 }
@@ -22,6 +24,7 @@ void ADominoBlockActor::BeginPlay()
 	Super::BeginPlay();
 
 	InitialTransform = GetActorTransform();
+	MeshComponent->OnComponentHit.AddDynamic(this, &ADominoBlockActor::HandleMeshHit);
 	SetPlacementMode(true);
 }
 
@@ -48,12 +51,31 @@ void ADominoBlockActor::SetPhysicsEnabled(bool bEnabled)
 	MeshComponent->SetSimulatePhysics(bEnabled);
 	MeshComponent->SetEnableGravity(bEnabled);
 	MeshComponent->SetCollisionEnabled(bEnabled ? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::QueryOnly);
+	MeshComponent->SetNotifyRigidBodyCollision(bEnabled);
 
 	if (!bEnabled)
 	{
+		bHasPlayedDominoCollisionSFX = false;
 		MeshComponent->SetPhysicsLinearVelocity(FVector::ZeroVector);
 		MeshComponent->SetPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
 	}
+}
+
+void ADominoBlockActor::HandleMeshHit(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+{
+	if (bHasPlayedDominoCollisionSFX || !MeshComponent || !MeshComponent->IsSimulatingPhysics() || !ShouldPlayDominoCollisionSFX(OtherActor, OtherComp, Hit.ImpactPoint))
+	{
+		return;
+	}
+
+	FVector ImpactPoint = Hit.ImpactPoint;
+	if (ImpactPoint.IsNearlyZero())
+	{
+		ImpactPoint = MeshComponent->GetComponentLocation();
+	}
+
+	bHasPlayedDominoCollisionSFX = true;
+	PlaySFX(DominoCollisionSFX, ImpactPoint);
 }
 
 void ADominoBlockActor::ApplyInitialFallImpulse(EDominoFallDirection Direction)
@@ -118,4 +140,37 @@ void ADominoBlockActor::ApplyMaterial(UMaterialInterface* Material)
 	{
 		MeshComponent->SetMaterial(0, Material);
 	}
+}
+
+bool ADominoBlockActor::ShouldPlayDominoCollisionSFX(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& ImpactPoint) const
+{
+	if (!OtherComp || OtherActor == this)
+	{
+		return false;
+	}
+
+	const ADominoBlockActor* OtherDominoBlock = Cast<ADominoBlockActor>(OtherActor);
+	if (!OtherDominoBlock)
+	{
+		OtherDominoBlock = Cast<ADominoBlockActor>(OtherComp->GetOwner());
+	}
+
+	if (!OtherDominoBlock || OtherDominoBlock->GetUniqueID() < GetUniqueID())
+	{
+		return false;
+	}
+
+	const FVector MyVelocity = MeshComponent ? MeshComponent->GetPhysicsLinearVelocityAtPoint(ImpactPoint) : FVector::ZeroVector;
+	const FVector OtherVelocity = OtherComp->GetPhysicsLinearVelocityAtPoint(ImpactPoint);
+	return (MyVelocity - OtherVelocity).Size() >= MinimumDominoCollisionSFXSpeed;
+}
+
+void ADominoBlockActor::PlaySFX(USoundBase* Sound, const FVector& Location) const
+{
+	if (!Sound)
+	{
+		return;
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, Sound, Location);
 }

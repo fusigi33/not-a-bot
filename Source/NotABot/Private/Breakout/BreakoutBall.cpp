@@ -7,6 +7,7 @@
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBreakoutBall, Log, All);
 
@@ -71,6 +72,7 @@ void ABreakoutBall::LaunchBall()
 	Velocity = InitialDirection.GetSafeNormal() * InitialSpeed;
 	ClampTravelDirection();
 	bBallActive = true;
+	bKillZoneHandled = false;
 
 	if (ProjectileMovement)
 	{
@@ -82,6 +84,7 @@ void ABreakoutBall::LaunchBall()
 void ABreakoutBall::ResetBall()
 {
 	bBallActive = false;
+	bKillZoneHandled = false;
 	LastHitActor.Reset();
 	TimeSinceLastHit = BIG_NUMBER;
 	Velocity = FVector::ZeroVector;
@@ -117,6 +120,14 @@ void ABreakoutBall::StopBall()
 
 void ABreakoutBall::HandleKillZoneOverlap()
 {
+	if (bKillZoneHandled)
+	{
+		return;
+	}
+
+	bKillZoneHandled = true;
+	PlaySFX(KillZoneSFX, GetActorLocation());
+
 	if (GameManager)
 	{
 		GameManager->HandleBallLost(this);
@@ -160,13 +171,22 @@ void ABreakoutBall::HandleBlockingHit(const FHitResult& Hit)
 		return;
 	}
 
-	if (ABreakoutBoundary* Boundary = Cast<ABreakoutBoundary>(HitActor))
+	ABreakoutBoundary* Boundary = Cast<ABreakoutBoundary>(HitActor);
+	const bool bHitPaddle = HitActor->IsA<ABreakoutPaddle>();
+	const bool bHitWall = Boundary && !Boundary->IsKillZone();
+
+	if (Boundary)
 	{
 		if (Boundary->IsKillZone())
 		{
 			HandleKillZoneOverlap();
 			return;
 		}
+	}
+
+	if (bHitPaddle || bHitWall)
+	{
+		PlaySFX(BounceSFX, Hit.ImpactPoint);
 	}
 
 	if (ABreakoutBrick* Brick = Cast<ABreakoutBrick>(HitActor))
@@ -286,6 +306,16 @@ void ABreakoutBall::ClampTravelDirection()
 	Direction.Y = FMath::Sin(ClampedAngleRadians) * HorizontalSign;
 	Direction.Z = FMath::Cos(ClampedAngleRadians) * VerticalSign;
 	Velocity = Direction * FMath::Clamp(GetCurrentSpeed(), InitialSpeed, MaxSpeed);
+}
+
+void ABreakoutBall::PlaySFX(USoundBase* Sound, const FVector& Location) const
+{
+	if (!Sound)
+	{
+		return;
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, Sound, Location);
 }
 
 FVector ABreakoutBall::BuildPaddleBounceDirection(const ABreakoutPaddle* HitPaddle, const FHitResult& Hit) const

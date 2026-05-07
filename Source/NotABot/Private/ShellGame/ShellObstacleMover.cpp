@@ -3,6 +3,7 @@
 #include "Components/SceneComponent.h"
 #include "Components/SplineComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
 
 AShellObstacleMover::AShellObstacleMover()
@@ -195,5 +196,10 @@ void AShellObstacleMover::StartMovementNow()
 	if (!MovementDirection.IsNearlyZero())
 	{
 		SetActorRotation(MovementDirection.Rotation());
+	}
+
+	if (MovementStartSFX)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, MovementStartSFX, GetActorLocation());
 	}
 }

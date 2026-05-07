@@ -9,6 +9,7 @@ class ABreakoutBrick;
 class ABreakoutGameManager;
 class ABreakoutPaddle;
 class UProjectileMovementComponent;
+class USoundBase;
 class USphereComponent;
 class UStaticMeshComponent;
 
@@ -85,6 +86,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Reflection", meta=(ClampMin="0.0"))
 	float SameActorBounceCooldown = 0.03f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Audio")
+	TObjectPtr<USoundBase> BounceSFX;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Audio")
+	TObjectPtr<USoundBase> KillZoneSFX;
+
 private:
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Breakout|References", meta=(AllowPrivateAccess="true"))
 	TObjectPtr<ABreakoutGameManager> GameManager;
@@ -92,6 +99,7 @@ private:
 	FVector SpawnLocation = FVector::ZeroVector;
 	FVector Velocity = FVector::ZeroVector;
 	bool bBallActive = false;
+	bool bKillZoneHandled = false;
 	float TimeSinceLastHit = BIG_NUMBER;
 	TWeakObjectPtr<AActor> LastHitActor;
 
@@ -102,6 +110,7 @@ private:
 	void HandlePaddleBounce(ABreakoutPaddle* HitPaddle, const FHitResult& Hit);
 	void MaintainMinimumSpeed();
 	void ClampTravelDirection();
+	void PlaySFX(USoundBase* Sound, const FVector& Location) const;
 	FVector BuildPaddleBounceDirection(const ABreakoutPaddle* HitPaddle, const FHitResult& Hit) const;
 	float GetCurrentSpeed() const;
 	bool CanBounceOnActor(const AActor* HitActor) const;

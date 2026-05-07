@@ -11,6 +11,7 @@ class UInputAction;
 class UPistolWeaponComponent;
 class URifleWeaponComponent;
 class UKnifeWeaponComponent;
+class USoundBase;
 struct FInputActionValue;
 
 UENUM(BlueprintType)
@@ -35,6 +36,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void Respawn();
+
+	virtual float TakeDamage(
+		float DamageAmount,
+		struct FDamageEvent const& DamageEvent,
+		class AController* EventInstigator,
+		AActor* DamageCauser) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -86,6 +93,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category="Input")
 	UInputAction* EquipKnifeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Audio")
+	TObjectPtr<USoundBase> DamagedSFX;
 
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);

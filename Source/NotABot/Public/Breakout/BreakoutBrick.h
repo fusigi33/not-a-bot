@@ -7,6 +7,7 @@
 class ABreakoutBall;
 class UBoxComponent;
 class UNiagaraSystem;
+class USoundBase;
 class UStaticMeshComponent;
 
 UCLASS()
@@ -24,7 +25,7 @@ public:
 	FVector GetBrickSize() const;
 
 protected:
-	void PlayBreakEffect() const;
+	void PlayBreakEffects() const;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<UBoxComponent> CollisionBox;
@@ -40,4 +41,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Effects")
 	FVector BreakEffectScale = FVector(1.0f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Audio")
+	TObjectPtr<USoundBase> BreakSFX;
 };

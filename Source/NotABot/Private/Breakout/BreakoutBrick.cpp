@@ -2,6 +2,7 @@
 
 #include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "NiagaraFunctionLibrary.h"
 
 ABreakoutBrick::ABreakoutBrick()
@@ -27,26 +28,29 @@ void ABreakoutBrick::HandleBallHit(ABreakoutBall* Ball)
 
 	if (HitPoints <= 0)
 	{
-		PlayBreakEffect();
+		PlayBreakEffects();
 		Destroy();
 	}
 }
 
-void ABreakoutBrick::PlayBreakEffect() const
+void ABreakoutBrick::PlayBreakEffects() const
 {
-	if (!BreakEffect)
+	if (BreakEffect)
 	{
-		return;
+		UNiagaraFunctionLibrary::SpawnSystemAtLocation(
+			this,
+			BreakEffect,
+			GetActorLocation(),
+			GetActorRotation(),
+			BreakEffectScale,
+			true,
+			true);
 	}
 
-	UNiagaraFunctionLibrary::SpawnSystemAtLocation(
-		this,
-		BreakEffect,
-		GetActorLocation(),
-		GetActorRotation(),
-		BreakEffectScale,
-		true,
-		true);
+	if (BreakSFX)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, BreakSFX, GetActorLocation());
+	}
 }
 
 FVector ABreakoutBrick::GetBrickSize() const

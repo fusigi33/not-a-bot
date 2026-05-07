@@ -1,6 +1,7 @@
 #include "BallShooter/BallShooterPawn.h"
 
 #include "BallShooter/BallShooterGameManager.h"
+#include "BallShooter/BallShooterObstacleBase.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
@@ -299,6 +300,7 @@ void ABallShooterPawn::StopBall()
 	FlightTime = 0.0f;
 	TimeBelowStopSpeed = 0.0f;
 	BounceCount = 0;
+	LastWallBounceSFXTime = -BIG_NUMBER;
 
 	if (ProjectileMovement)
 	{
@@ -493,6 +495,61 @@ FVector ABallShooterPawn::GetCurrentVelocity() const
 void ABallShooterPawn::HandleProjectileBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
 	BounceCount++;
+
+	if (!IsBounceSFXHit(ImpactResult))
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const float CurrentTime = World->GetTimeSeconds();
+	if (CurrentTime - LastWallBounceSFXTime < WallBounceSFXCooldown)
+	{
+		return;
+	}
+
+	LastWallBounceSFXTime = CurrentTime;
+	PlaySFX(WallBounceSFX, ImpactResult.ImpactPoint);
+}
+
+bool ABallShooterPawn::IsBounceSFXHit(const FHitResult& Hit) const
+{
+	if (Hit.GetActor() && Hit.GetActor()->IsA<ABallShooterObstacleBase>())
+	{
+		return true;
+	}
+
+	const UPrimitiveComponent* HitComponent = Hit.GetComponent();
+	if (!HitComponent)
+	{
+		return false;
+	}
+
+	static const FName BottomWallName(TEXT("BottomWall"));
+	static const FName RightWallName(TEXT("RightWall"));
+	static const FName LeftWallName(TEXT("LeftWall"));
+	static const FName TopWallName(TEXT("TopWall"));
+
+	const FName ComponentName = HitComponent->GetFName();
+	return ComponentName == BottomWallName
+		|| ComponentName == RightWallName
+		|| ComponentName == LeftWallName
+		|| ComponentName == TopWallName;
+}
+
+void ABallShooterPawn::PlaySFX(USoundBase* Sound, const FVector& Location) const
+{
+	if (!Sound)
+	{
+		return;
+	}
+
+	UGameplayStatics::PlaySoundAtLocation(this, Sound, Location);
 }
 
 void ABallShooterPawn::SetTrajectoryVisible(bool bVisible)

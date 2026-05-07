@@ -11,6 +11,7 @@ class UInputMappingContext;
 class UInstancedStaticMeshComponent;
 class UProjectileMovementComponent;
 class USceneComponent;
+class USoundBase;
 class USphereComponent;
 class UStaticMeshComponent;
 struct FInputActionValue;
@@ -253,6 +254,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BallShooter|Rules", meta=(ClampMin="0"))
 	int32 MaxBounceCount = 16;
 
+	/** 보드판 벽이나 장애물과 충돌했을 때 재생할 효과음입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BallShooter|Audio")
+	TObjectPtr<USoundBase> WallBounceSFX;
+
+	/** 충돌 효과음이 너무 촘촘하게 중복 재생되지 않도록 막는 시간입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="BallShooter|Audio", meta=(ClampMin="0.0"))
+	float WallBounceSFXCooldown = 0.05f;
+
 	/** 현재 폰의 조준 상태입니다. */
 	UPROPERTY(BlueprintReadOnly, Category="BallShooter|State")
 	EBallShooterAimState AimState = EBallShooterAimState::Aiming;
@@ -280,6 +289,8 @@ private:
 	int32 BounceCount = 0;
 	/** 너무 짧은 예측 경로에 대한 경고 로그를 이미 남겼는지 여부입니다. */
 	bool bLoggedShortTrajectoryWarning = false;
+	/** 마지막으로 충돌 효과음을 재생한 월드 시간입니다. */
+	float LastWallBounceSFXTime = -BIG_NUMBER;
 
 	/** 조준 축 입력을 받아 저장합니다. */
 	void HandleAimInput(const FInputActionValue& Value);
@@ -301,6 +312,10 @@ private:
 	 */
 	UFUNCTION()
 	void HandleProjectileBounce(const FHitResult& ImpactResult, const FVector& ImpactVelocity);
+	/** 충돌 결과가 효과음 재생 대상인지 확인합니다. */
+	bool IsBounceSFXHit(const FHitResult& Hit) const;
+	/** 효과음을 지정한 위치에서 재생합니다. */
+	void PlaySFX(USoundBase* Sound, const FVector& Location) const;
 	/** 궤적 프리뷰 메시 표시 여부를 전환합니다. */
 	void SetTrajectoryVisible(bool bVisible);
 	/** 현재 발사 방향과 속도로 실제 초기 속도를 구성합니다. */
