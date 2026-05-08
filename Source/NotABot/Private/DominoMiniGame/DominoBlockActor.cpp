@@ -134,6 +134,11 @@ void ADominoBlockActor::ResetDominoTransform()
 	SetActorTransform(InitialTransform, false, nullptr, ETeleportType::TeleportPhysics);
 }
 
+void ADominoBlockActor::SetInitialTransform(const FTransform& NewInitialTransform)
+{
+	InitialTransform = NewInitialTransform;
+}
+
 void ADominoBlockActor::ApplyMaterial(UMaterialInterface* Material)
 {
 	if (MeshComponent && Material)

@@ -24,7 +24,7 @@ void ADominoMiniGameManager::BeginRound()
 {
 	ResetRound();
 
-	EnsureEndpointDominoes();
+	EnsureEndpointDominoes(true);
 	SpawnInteractiveObjects();
 	SetInteractiveObjectsSimulationEnabled(false);
 
@@ -382,7 +382,7 @@ void ADominoMiniGameManager::OnDominoMiniGameFailed()
 	BP_OnMiniGameFailed();
 }
 
-void ADominoMiniGameManager::EnsureEndpointDominoes()
+void ADominoMiniGameManager::EnsureEndpointDominoes(bool bApplyRoundTransformToExisting)
 {
 	if (!RoundData.DominoClass)
 	{
@@ -393,10 +393,36 @@ void ADominoMiniGameManager::EnsureEndpointDominoes()
 	{
 		StartDomino = SpawnDomino(RoundData.StartDominoLocation, RoundData.DefaultDominoRotation, false);
 	}
+	else if (bApplyRoundTransformToExisting)
+	{
+		const FTransform StartTransform(RoundData.DefaultDominoRotation, RoundData.StartDominoLocation, StartDomino->GetActorScale3D());
+		StartDomino->SetPhysicsEnabled(false);
+		StartDomino->SetAsPreview(false);
+		StartDomino->PlacementHalfExtent = PlacementHalfExtent;
+		StartDomino->SetActorTransform(StartTransform, false, nullptr, ETeleportType::TeleportPhysics);
+	}
+
+	if (StartDomino && bApplyRoundTransformToExisting)
+	{
+		StartDomino->SetInitialTransform(StartDomino->GetActorTransform());
+	}
 
 	if (!GoalDomino)
 	{
 		GoalDomino = SpawnDomino(RoundData.GoalDominoLocation, RoundData.DefaultDominoRotation, false);
+	}
+	else if (bApplyRoundTransformToExisting)
+	{
+		const FTransform GoalTransform(RoundData.DefaultDominoRotation, RoundData.GoalDominoLocation, GoalDomino->GetActorScale3D());
+		GoalDomino->SetPhysicsEnabled(false);
+		GoalDomino->SetAsPreview(false);
+		GoalDomino->PlacementHalfExtent = PlacementHalfExtent;
+		GoalDomino->SetActorTransform(GoalTransform, false, nullptr, ETeleportType::TeleportPhysics);
+	}
+
+	if (GoalDomino && bApplyRoundTransformToExisting)
+	{
+		GoalDomino->SetInitialTransform(GoalDomino->GetActorTransform());
 	}
 }
 

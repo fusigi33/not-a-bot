@@ -6,6 +6,7 @@
 
 class UAudioComponent;
 class USoundBase;
+class USoundWave;
 
 UCLASS(BlueprintType)
 class NOTABOT_API UMusicSubsystem : public UGameInstanceSubsystem
@@ -18,6 +19,7 @@ public:
 		USoundBase* Music,
 		float FadeInSeconds = 0.5f,
 		float FadeOutSeconds = 0.5f,
+		float TransitionDelaySeconds = 0.0f,
 		float VolumeMultiplier = 1.0f,
 		float StartTime = 0.0f,
 		bool bPersistAcrossLevelTransition = false,
@@ -33,11 +35,25 @@ public:
 	bool IsMusicPlaying() const;
 
 private:
+	void StartMusicNow(
+		USoundBase* Music,
+		float FadeInSeconds,
+		float VolumeMultiplier,
+		float StartTime,
+		bool bPersistAcrossLevelTransition,
+		bool bLooping);
+
+	UFUNCTION()
+	void StartPendingMusic();
+
 	void FadeOutActiveMusic(float FadeOutSeconds);
 	void CleanupFadedMusicComponents();
 
 	UFUNCTION()
 	void HandleActiveMusicFinished();
+
+	UFUNCTION()
+	void HandleActiveMusicPlaybackPercent(const USoundWave* PlayingSoundWave, const float PlaybackPercent);
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ActiveMusicComponent = nullptr;
@@ -46,7 +62,19 @@ private:
 	TObjectPtr<USoundBase> CurrentMusic = nullptr;
 
 	bool bCurrentMusicLoops = true;
+	float CurrentMusicPlaybackTime = 0.0f;
+	float CurrentMusicPlaybackPercent = 0.0f;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UAudioComponent>> FadingMusicComponents;
+
+	UPROPERTY(Transient)
+	TObjectPtr<USoundBase> PendingMusic = nullptr;
+
+	FTimerHandle PendingMusicTimerHandle;
+	float PendingFadeInSeconds = 0.0f;
+	float PendingVolumeMultiplier = 1.0f;
+	float PendingStartTime = 0.0f;
+	bool bPendingPersistAcrossLevelTransition = false;
+	bool bPendingLooping = true;
 };

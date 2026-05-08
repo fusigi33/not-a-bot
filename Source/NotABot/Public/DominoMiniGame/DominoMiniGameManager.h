@@ -173,7 +173,7 @@ protected:
 	virtual void BeginPlay() override;
 
 	/** 시작/목표 도미노를 준비합니다. */
-	void EnsureEndpointDominoes();
+	void EnsureEndpointDominoes(bool bApplyRoundTransformToExisting = false);
 
 	/** 라운드 데이터에 등록된 상호작용 오브젝트를 스폰합니다. */
 	void SpawnInteractiveObjects();

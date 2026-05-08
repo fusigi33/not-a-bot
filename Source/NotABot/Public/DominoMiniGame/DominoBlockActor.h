@@ -50,6 +50,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Domino")
 	void ResetDominoTransform();
 
+	/** ResetDominoTransform에서 사용할 기준 위치와 회전을 갱신합니다. */
+	UFUNCTION(BlueprintCallable, Category = "Domino")
+	void SetInitialTransform(const FTransform& NewInitialTransform);
+
 	/** 도미노 메시 컴포넌트입니다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Domino")
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
