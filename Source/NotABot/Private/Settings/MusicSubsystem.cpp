@@ -13,7 +13,8 @@ void UMusicSubsystem::PlayMusic(
 	float FadeOutSeconds,
 	float VolumeMultiplier,
 	float StartTime,
-	bool bPersistAcrossLevelTransition)
+	bool bPersistAcrossLevelTransition,
+	bool bLooping)
 {
 	if (!Music)
 	{
@@ -25,6 +26,7 @@ void UMusicSubsystem::PlayMusic(
 	if (ActiveMusicComponent && CurrentMusic == Music)
 	{
 		UE_LOG(LogMusicSubsystem, Verbose, TEXT("PlayMusic ignored because '%s' is already active."), *Music->GetName());
+		bCurrentMusicLoops = bLooping;
 		if (!ActiveMusicComponent->IsPlaying())
 		{
 			ActiveMusicComponent->FadeIn(FMath::Max(0.0f, FadeInSeconds), VolumeMultiplier, StartTime);
@@ -53,6 +55,8 @@ void UMusicSubsystem::PlayMusic(
 
 	ActiveMusicComponent = NewMusicComponent;
 	CurrentMusic = Music;
+	bCurrentMusicLoops = bLooping;
+	NewMusicComponent->OnAudioFinished.AddDynamic(this, &UMusicSubsystem::HandleActiveMusicFinished);
 	UE_LOG(LogMusicSubsystem, Log, TEXT("Playing music '%s'."), *Music->GetName());
 
 	if (FadeInSeconds > 0.0f)
@@ -63,6 +67,16 @@ void UMusicSubsystem::PlayMusic(
 	{
 		NewMusicComponent->Play(StartTime);
 	}
+}
+
+void UMusicSubsystem::HandleActiveMusicFinished()
+{
+	if (!ActiveMusicComponent || !CurrentMusic || !bCurrentMusicLoops)
+	{
+		return;
+	}
+
+	ActiveMusicComponent->Play(0.0f);
 }
 
 void UMusicSubsystem::StopMusic(float FadeOutSeconds)
@@ -85,6 +99,7 @@ void UMusicSubsystem::FadeOutActiveMusic(float FadeOutSeconds)
 	}
 
 	UAudioComponent* ComponentToFade = ActiveMusicComponent;
+	ComponentToFade->OnAudioFinished.RemoveDynamic(this, &UMusicSubsystem::HandleActiveMusicFinished);
 	ActiveMusicComponent = nullptr;
 
 	const float ClampedFadeOutSeconds = FMath::Max(0.0f, FadeOutSeconds);

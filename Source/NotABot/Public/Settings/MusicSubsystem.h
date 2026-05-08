@@ -20,7 +20,8 @@ public:
 		float FadeOutSeconds = 0.5f,
 		float VolumeMultiplier = 1.0f,
 		float StartTime = 0.0f,
-		bool bPersistAcrossLevelTransition = false);
+		bool bPersistAcrossLevelTransition = false,
+		bool bLooping = true);
 
 	UFUNCTION(BlueprintCallable, Category="Music")
 	void StopMusic(float FadeOutSeconds = 0.5f);
@@ -35,11 +36,16 @@ private:
 	void FadeOutActiveMusic(float FadeOutSeconds);
 	void CleanupFadedMusicComponents();
 
+	UFUNCTION()
+	void HandleActiveMusicFinished();
+
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ActiveMusicComponent = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USoundBase> CurrentMusic = nullptr;
+
+	bool bCurrentMusicLoops = true;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UAudioComponent>> FadingMusicComponents;
