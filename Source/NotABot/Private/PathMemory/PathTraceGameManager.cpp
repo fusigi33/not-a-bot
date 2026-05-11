@@ -49,6 +49,7 @@ void APathTraceGameManager::StartMiniGame()
 	}
 
 	CurrentState = EPathTraceState::ShowingAnswer;
+	BoardActor->SetTopSceneCaptureEnabled(true);
 
 	PlayerCharacter->SetCanPlayerMove(false);
 	PlayerCharacter->SetPlayerCaptureEnabled(false);
@@ -98,6 +99,11 @@ void APathTraceGameManager::EnterPlayerTurn()
 	}
 
 	CurrentState = EPathTraceState::PlayerTurn;
+
+	if (BoardActor)
+	{
+		BoardActor->SetTopSceneCaptureEnabled(false);
+	}
 
 	if (PC->GetPawn() != PlayerCharacter)
 	{
@@ -258,6 +264,11 @@ void APathTraceGameManager::ShowRecordedPlayerPath(float Duration)
 void APathTraceGameManager::FinishMiniGame(bool bSuccess, float AccuracyPercent)
 {
 	CurrentState = EPathTraceState::Result;
+	if (BoardActor)
+	{
+		BoardActor->SetTopSceneCaptureEnabled(false);
+	}
+
 	if (PlayerCharacter)
 	{
 		PlayerCharacter->SetPlayerCaptureEnabled(false);

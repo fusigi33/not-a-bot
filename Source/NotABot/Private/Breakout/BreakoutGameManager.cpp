@@ -22,6 +22,10 @@ void ABreakoutGameManager::BeginPlay()
 
 	FindOrCreateHUDWidget();
 	SetWidgetVisible(false);
+	if (CaptureActor)
+	{
+		CaptureActor->SetSceneCaptureEnabled(false);
+	}
 
 	if (BallToControl)
 	{
@@ -43,6 +47,10 @@ void ABreakoutGameManager::StartMiniGame()
 
 	FindOrCreateHUDWidget();
 	SetWidgetVisible(true);
+	if (CaptureActor)
+	{
+		CaptureActor->SetSceneCaptureEnabled(true);
+	}
 
 	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
 	{
@@ -66,6 +74,10 @@ void ABreakoutGameManager::StopMiniGame()
 {
 	bMiniGameActive = false;
 	StopBrickDropTimer();
+	if (CaptureActor)
+	{
+		CaptureActor->SetSceneCaptureEnabled(false);
+	}
 
 	if (BallToControl)
 	{
@@ -81,6 +93,10 @@ void ABreakoutGameManager::RestartBreakoutRound()
 	bIsGameCleared = false;
 	bMiniGameActive = true;
 	StopBrickDropTimer();
+	if (CaptureActor)
+	{
+		CaptureActor->SetSceneCaptureEnabled(true);
+	}
 
 	if (BallToControl)
 	{
@@ -137,6 +153,10 @@ void ABreakoutGameManager::TriggerGameOver()
 	bIsGameOver = true;
 	bMiniGameActive = false;
 	StopBrickDropTimer();
+	if (CaptureActor)
+	{
+		CaptureActor->SetSceneCaptureEnabled(false);
+	}
 
 	if (BallToControl)
 	{
@@ -363,6 +383,10 @@ void ABreakoutGameManager::HandleMiniGameCleared()
 	bIsGameCleared = true;
 	bMiniGameActive = false;
 	StopBrickDropTimer();
+	if (CaptureActor)
+	{
+		CaptureActor->SetSceneCaptureEnabled(false);
+	}
 
 	if (BallToControl)
 	{

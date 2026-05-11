@@ -14,7 +14,8 @@ ABreakoutCaptureActor::ABreakoutCaptureActor()
 	SceneCapture->SetupAttachment(RootScene);
 	SceneCapture->ProjectionType = ECameraProjectionMode::Perspective;
 	SceneCapture->FOVAngle = 40.0f;
-	SceneCapture->bCaptureEveryFrame = true;
+	SceneCapture->bAutoActivate = false;
+	SceneCapture->bCaptureEveryFrame = false;
 	SceneCapture->bCaptureOnMovement = false;
 	SceneCapture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
 	SceneCapture->PrimitiveRenderMode = ESceneCapturePrimitiveRenderMode::PRM_RenderScenePrimitives;
@@ -23,4 +24,16 @@ ABreakoutCaptureActor::ABreakoutCaptureActor()
 UTextureRenderTarget2D* ABreakoutCaptureActor::GetRenderTarget() const
 {
 	return SceneCapture ? SceneCapture->TextureTarget : nullptr;
+}
+
+void ABreakoutCaptureActor::SetSceneCaptureEnabled(bool bEnabled)
+{
+	if (!SceneCapture)
+	{
+		return;
+	}
+
+	SceneCapture->bCaptureEveryFrame = bEnabled;
+	SceneCapture->SetComponentTickEnabled(bEnabled);
+	SceneCapture->SetActive(bEnabled, true);
 }

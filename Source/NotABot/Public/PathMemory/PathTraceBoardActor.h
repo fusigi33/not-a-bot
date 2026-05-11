@@ -133,6 +133,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="PathTrace|Review")
 	void ShowPlayerPath(const TArray<FVector>& PlayerPath, float LifeTime = -1.f);
+
+	UFUNCTION(BlueprintCallable, Category="PathTrace|Capture")
+	void SetTopSceneCaptureEnabled(bool bEnabled);
 	
 	void SetupCaptureTransform();
 

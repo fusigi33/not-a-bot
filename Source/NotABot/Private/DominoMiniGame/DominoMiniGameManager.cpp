@@ -424,6 +424,16 @@ void ADominoMiniGameManager::EnsureEndpointDominoes(bool bApplyRoundTransformToE
 	{
 		GoalDomino->SetInitialTransform(GoalDomino->GetActorTransform());
 	}
+
+	ApplyGoalDominoMaterial();
+}
+
+void ADominoMiniGameManager::ApplyGoalDominoMaterial() const
+{
+	if (GoalDomino && GoalDominoMaterial && GoalDomino->MeshComponent)
+	{
+		GoalDomino->MeshComponent->SetMaterial(0, GoalDominoMaterial);
+	}
 }
 
 void ADominoMiniGameManager::SpawnInteractiveObjects()

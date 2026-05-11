@@ -19,6 +19,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="Breakout|Capture")
 	UTextureRenderTarget2D* GetRenderTarget() const;
 
+	UFUNCTION(BlueprintCallable, Category="Breakout|Capture")
+	void SetSceneCaptureEnabled(bool bEnabled);
+
 protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Breakout|Components")
 	TObjectPtr<USceneComponent> RootScene;

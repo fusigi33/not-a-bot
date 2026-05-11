@@ -37,6 +37,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void Respawn();
 
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void SetGameplayInputIgnored(bool bIgnore);
+
 	virtual float TakeDamage(
 		float DamageAmount,
 		struct FDamageEvent const& DamageEvent,
@@ -94,6 +97,12 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category="Input")
 	UInputAction* EquipKnifeAction;
 
+	UPROPERTY(EditDefaultsOnly, Category="Input")
+	UInputAction* CursorAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
+	bool bIgnoreGameplayInput = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Audio")
 	TObjectPtr<USoundBase> DamagedSFX;
 
@@ -102,6 +111,10 @@ protected:
 	void Fire();
 	void StartFire();
 	void StopFire();
+	void StartJump();
+	void StopJump();
+	void BeginIgnoreGameplayInput();
+	void EndIgnoreGameplayInput();
 
 	void EquipShotgun();
 	void EquipPistol();

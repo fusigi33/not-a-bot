@@ -8,6 +8,7 @@
 class ADominoBlockActor;
 class ADominoBoardActor;
 class UDataTable;
+class UMaterialInterface;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDominoMiniGameResultSignature);
 
@@ -109,6 +110,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame")
 	TObjectPtr<ADominoBlockActor> GoalDomino;
 
+	/** 목표 도미노에만 적용할 머티리얼입니다. 비어 있으면 도미노 기본 머티리얼을 유지합니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame|Material")
+	TObjectPtr<UMaterialInterface> GoalDominoMaterial;
+
 	/** 배치 검사에 사용할 도미노 절반 크기입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame|Placement")
 	FVector PlacementHalfExtent = FVector(12.0f, 4.0f, 42.0f);
@@ -174,6 +179,9 @@ protected:
 
 	/** 시작/목표 도미노를 준비합니다. */
 	void EnsureEndpointDominoes(bool bApplyRoundTransformToExisting = false);
+
+	/** 목표 도미노에 목표 전용 머티리얼을 적용합니다. */
+	void ApplyGoalDominoMaterial() const;
 
 	/** 라운드 데이터에 등록된 상호작용 오브젝트를 스폰합니다. */
 	void SpawnInteractiveObjects();

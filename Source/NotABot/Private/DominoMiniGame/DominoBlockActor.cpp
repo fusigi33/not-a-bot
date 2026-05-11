@@ -24,6 +24,14 @@ void ADominoBlockActor::BeginPlay()
 	Super::BeginPlay();
 
 	InitialTransform = GetActorTransform();
+
+	if (!IsValid(MeshComponent))
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s has invalid MeshComponent"), *GetName());
+		return;
+	}
+
+	MeshComponent->OnComponentHit.RemoveDynamic(this, &ADominoBlockActor::HandleMeshHit);
 	MeshComponent->OnComponentHit.AddDynamic(this, &ADominoBlockActor::HandleMeshHit);
 	SetPlacementMode(true);
 }

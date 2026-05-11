@@ -176,8 +176,8 @@ void AFPSPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 	if (JumpAction)
 	{
-		EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
-		EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
+		EIC->BindAction(JumpAction, ETriggerEvent::Started, this, &AFPSPlayerCharacter::StartJump);
+		EIC->BindAction(JumpAction, ETriggerEvent::Completed, this, &AFPSPlayerCharacter::StopJump);
 	}
 
 	if (EquipShotgunAction)
@@ -199,13 +199,20 @@ void AFPSPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	{
 		EIC->BindAction(EquipKnifeAction, ETriggerEvent::Started, this, &AFPSPlayerCharacter::EquipKnife);
 	}
+
+	if (CursorAction)
+	{
+		EIC->BindAction(CursorAction, ETriggerEvent::Started, this, &AFPSPlayerCharacter::BeginIgnoreGameplayInput);
+		EIC->BindAction(CursorAction, ETriggerEvent::Completed, this, &AFPSPlayerCharacter::EndIgnoreGameplayInput);
+		EIC->BindAction(CursorAction, ETriggerEvent::Canceled, this, &AFPSPlayerCharacter::EndIgnoreGameplayInput);
+	}
 }
 
 void AFPSPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	
-	if (!bWantsToFire || bDead || CurrentWeapon != EPlayerWeaponType::Rifle || !RifleComponent || !FirstPersonCamera)
+	if (bIgnoreGameplayInput || !bWantsToFire || bDead || CurrentWeapon != EPlayerWeaponType::Rifle || !RifleComponent || !FirstPersonCamera)
 	{
 		return;
 	}
@@ -217,6 +224,11 @@ void AFPSPlayerCharacter::Tick(float DeltaSeconds)
 
 void AFPSPlayerCharacter::StartFire()
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	bWantsToFire = true;
 
 	if (CurrentWeapon != EPlayerWeaponType::Rifle)
@@ -232,6 +244,11 @@ void AFPSPlayerCharacter::StopFire()
 
 void AFPSPlayerCharacter::Move(const FInputActionValue& Value)
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	const FVector2D Input = Value.Get<FVector2D>();
 	if (!Controller)
 	{
@@ -244,14 +261,40 @@ void AFPSPlayerCharacter::Move(const FInputActionValue& Value)
 
 void AFPSPlayerCharacter::Look(const FInputActionValue& Value)
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	const FVector2D Input = Value.Get<FVector2D>();
 	AddControllerYawInput(Input.X);
 	AddControllerPitchInput(Input.Y);
 }
 
+void AFPSPlayerCharacter::SetGameplayInputIgnored(bool bIgnore)
+{
+	bIgnoreGameplayInput = bIgnore;
+
+	if (bIgnoreGameplayInput)
+	{
+		StopFire();
+		StopJumping();
+	}
+}
+
+void AFPSPlayerCharacter::BeginIgnoreGameplayInput()
+{
+	SetGameplayInputIgnored(true);
+}
+
+void AFPSPlayerCharacter::EndIgnoreGameplayInput()
+{
+	SetGameplayInputIgnored(false);
+}
+
 void AFPSPlayerCharacter::Fire()
 {
-	if (bDead || !FirstPersonCamera)
+	if (bIgnoreGameplayInput || bDead || !FirstPersonCamera)
 	{
 		return;
 	}
@@ -293,20 +336,55 @@ void AFPSPlayerCharacter::Fire()
 
 void AFPSPlayerCharacter::EquipShotgun()
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	CurrentWeapon = EPlayerWeaponType::Shotgun;
 }
 
 void AFPSPlayerCharacter::EquipPistol()
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	CurrentWeapon = EPlayerWeaponType::Pistol;
 }
 
 void AFPSPlayerCharacter::EquipRifle()
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	CurrentWeapon = EPlayerWeaponType::Rifle;
 }
 
 void AFPSPlayerCharacter::EquipKnife()
 {
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
 	CurrentWeapon = EPlayerWeaponType::Knife;
+}
+
+void AFPSPlayerCharacter::StartJump()
+{
+	if (bIgnoreGameplayInput)
+	{
+		return;
+	}
+
+	Jump();
+}
+
+void AFPSPlayerCharacter::StopJump()
+{
+	StopJumping();
 }

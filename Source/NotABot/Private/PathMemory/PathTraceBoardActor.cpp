@@ -22,7 +22,8 @@ APathTraceBoardActor::APathTraceBoardActor()
 
 	TopSceneCapture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("TopSceneCapture"));
 	TopSceneCapture->SetupAttachment(Root);
-	TopSceneCapture->bCaptureEveryFrame = true;
+	TopSceneCapture->bAutoActivate = false;
+	TopSceneCapture->bCaptureEveryFrame = false;
 	TopSceneCapture->bCaptureOnMovement = false;
 
 	GoalTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("GoalTrigger"));
@@ -74,6 +75,7 @@ void APathTraceBoardActor::BeginPlay()
 		TopSceneCapture->TextureTarget = BoardRenderTarget;
 	}
 
+	SetTopSceneCaptureEnabled(false);
 	SetupCaptureTransform();
 	UpdateInvisibleWalls();
 
@@ -178,6 +180,18 @@ void APathTraceBoardActor::ShowPlayerPath(const TArray<FVector>& PlayerPath, flo
 			true
 		);
 	}
+}
+
+void APathTraceBoardActor::SetTopSceneCaptureEnabled(bool bEnabled)
+{
+	if (!TopSceneCapture)
+	{
+		return;
+	}
+
+	TopSceneCapture->bCaptureEveryFrame = bEnabled;
+	TopSceneCapture->SetComponentTickEnabled(bEnabled);
+	TopSceneCapture->SetActive(bEnabled, true);
 }
 
 void APathTraceBoardActor::DrawNextPlayerPathSegment()
