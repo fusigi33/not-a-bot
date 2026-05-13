@@ -74,7 +74,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Capture")
 	float TopCapturePitch = -60.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace|Scoring")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace|Scoring")
 	float AllowedDeviation = 120.f;
 
 	// 체크포인트를 스플라인 위에 얼마의 간격으로 배치할지

@@ -8,6 +8,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
+#include "InputMappingContext.h"
 
 #include "GameFramework/PlayerController.h"
 #include "Engine/LocalPlayer.h"
@@ -74,21 +75,32 @@ void APathTraceCharacter::RegisterMappingContext()
 {
 	if (!DefaultMappingContext)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] RegisterMappingContext skipped: DefaultMappingContext is null. Character=%s"), *GetName());
 		return;
 	}
 
 	UEnhancedInputLocalPlayerSubsystem* Subsystem = GetEnhancedInputSubsystem();
 	if (!Subsystem)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] RegisterMappingContext skipped: EnhancedInput subsystem is null. Character=%s Controller=%s"),
+			*GetName(),
+			Controller ? *Controller->GetName() : TEXT("None"));
 		return;
 	}
 
+	Subsystem->ClearAllMappings();
 	Subsystem->AddMappingContext(DefaultMappingContext, 0);
+
+	UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] Registered mapping context. Character=%s Context=%s"),
+		*GetName(),
+		*DefaultMappingContext->GetName());
 }
 
 void APathTraceCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	PollRawMovementKeys();
 
 	if (!bCanPlayerMove)
 	{
@@ -110,9 +122,21 @@ void APathTraceCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 
 	if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] SetupPlayerInputComponent. Character=%s InputComponent=%s MoveAction=%s LookAction=%s CursorAction=%s"),
+			*GetName(),
+			PlayerInputComponent ? *PlayerInputComponent->GetName() : TEXT("None"),
+			MoveAction ? *MoveAction->GetName() : TEXT("None"),
+			LookAction ? *LookAction->GetName() : TEXT("None"),
+			CursorAction ? *CursorAction->GetName() : TEXT("None"));
+
 		if (MoveAction)
 		{
+			EnhancedInput->BindAction(MoveAction, ETriggerEvent::Started, this, &APathTraceCharacter::LogMoveActionStarted);
+			EnhancedInput->BindAction(MoveAction, ETriggerEvent::Ongoing, this, &APathTraceCharacter::LogMoveActionOngoing);
 			EnhancedInput->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APathTraceCharacter::Move);
+			EnhancedInput->BindAction(MoveAction, ETriggerEvent::Completed, this, &APathTraceCharacter::LogMoveActionCompleted);
+			EnhancedInput->BindAction(MoveAction, ETriggerEvent::Canceled, this, &APathTraceCharacter::LogMoveActionCanceled);
+			UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] Bound MoveAction=%s"), *MoveAction->GetName());
 		}
 		
 		if (LookAction)
@@ -126,6 +150,12 @@ void APathTraceCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 			EnhancedInput->BindAction(CursorAction, ETriggerEvent::Completed, this, &APathTraceCharacter::HideMouseCursor);
 			EnhancedInput->BindAction(CursorAction, ETriggerEvent::Canceled, this, &APathTraceCharacter::HideMouseCursor);
 		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] SetupPlayerInputComponent skipped: not EnhancedInputComponent. Character=%s InputComponent=%s"),
+			*GetName(),
+			PlayerInputComponent ? *PlayerInputComponent->GetName() : TEXT("None"));
 	}
 }
 
@@ -163,16 +193,84 @@ void APathTraceCharacter::ForceHideMouseCursor()
 	}
 }
 
+void APathTraceCharacter::PollRawMovementKeys()
+{
+	const APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC)
+	{
+		return;
+	}
+
+	const bool bRawWKeyDown = PC->IsInputKeyDown(EKeys::W);
+	const bool bRawAKeyDown = PC->IsInputKeyDown(EKeys::A);
+	const bool bRawSKeyDown = PC->IsInputKeyDown(EKeys::S);
+	const bool bRawDKeyDown = PC->IsInputKeyDown(EKeys::D);
+
+	if (bRawWKeyDown != bWasRawWKeyDown || bRawAKeyDown != bWasRawAKeyDown || bRawSKeyDown != bWasRawSKeyDown || bRawDKeyDown != bWasRawDKeyDown)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] Raw key state changed. W=%s A=%s S=%s D=%s CanMove=%s Controller=%s"),
+			bRawWKeyDown ? TEXT("down") : TEXT("up"),
+			bRawAKeyDown ? TEXT("down") : TEXT("up"),
+			bRawSKeyDown ? TEXT("down") : TEXT("up"),
+			bRawDKeyDown ? TEXT("down") : TEXT("up"),
+			bCanPlayerMove ? TEXT("true") : TEXT("false"),
+			*PC->GetName());
+
+		bWasRawWKeyDown = bRawWKeyDown;
+		bWasRawAKeyDown = bRawAKeyDown;
+		bWasRawSKeyDown = bRawSKeyDown;
+		bWasRawDKeyDown = bRawDKeyDown;
+	}
+}
+
+void APathTraceCharacter::LogMoveActionStarted(const FInputActionValue& Value)
+{
+	LogMoveActionEvent(TEXT("Started"), Value);
+}
+
+void APathTraceCharacter::LogMoveActionOngoing(const FInputActionValue& Value)
+{
+	LogMoveActionEvent(TEXT("Ongoing"), Value);
+}
+
+void APathTraceCharacter::LogMoveActionCompleted(const FInputActionValue& Value)
+{
+	LogMoveActionEvent(TEXT("Completed"), Value);
+}
+
+void APathTraceCharacter::LogMoveActionCanceled(const FInputActionValue& Value)
+{
+	LogMoveActionEvent(TEXT("Canceled"), Value);
+}
+
+void APathTraceCharacter::LogMoveActionEvent(const TCHAR* EventName, const FInputActionValue& Value) const
+{
+	const FVector2D MoveValue = Value.Get<FVector2D>();
+	UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] MoveAction %s X=%.3f Y=%.3f CanMove=%s Action=%s"),
+		EventName,
+		MoveValue.X,
+		MoveValue.Y,
+		bCanPlayerMove ? TEXT("true") : TEXT("false"),
+		MoveAction ? *MoveAction->GetName() : TEXT("None"));
+}
+
 void APathTraceCharacter::Move(const FInputActionValue& Value)
 {
 	if (!bCanPlayerMove)
 	{
+		const FVector2D BlockedMoveValue = Value.Get<FVector2D>();
+		UE_LOG(LogTemp, Verbose, TEXT("[PathTraceCharacter] Move ignored because player movement is disabled. X=%.3f Y=%.3f"),
+			BlockedMoveValue.X,
+			BlockedMoveValue.Y);
 		return;
 	}
 
 	const FVector2D MoveValue = Value.Get<FVector2D>();
 	if (MoveValue.IsNearlyZero())
 	{
+		UE_LOG(LogTemp, Verbose, TEXT("[PathTraceCharacter] Move ignored because input is nearly zero. X=%.3f Y=%.3f"),
+			MoveValue.X,
+			MoveValue.Y);
 		return;
 	}
 
@@ -181,6 +279,18 @@ void APathTraceCharacter::Move(const FInputActionValue& Value)
 
 	const FVector ForwardDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::X);
 	const FVector RightDir = FRotationMatrix(YawRot).GetUnitAxis(EAxis::Y);
+
+	const UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	UE_LOG(LogTemp, Warning, TEXT("[PathTraceCharacter] Move input X=%.3f Y=%.3f ControlYaw=%.2f Forward=%s Right=%s Location=%s Velocity=%s MovementMode=%d ConstrainToPlane=%s"),
+		MoveValue.X,
+		MoveValue.Y,
+		YawRot.Yaw,
+		*ForwardDir.ToCompactString(),
+		*RightDir.ToCompactString(),
+		*GetActorLocation().ToCompactString(),
+		MovementComponent ? *MovementComponent->Velocity.ToCompactString() : TEXT("None"),
+		MovementComponent ? static_cast<int32>(MovementComponent->MovementMode) : -1,
+		MovementComponent && MovementComponent->bConstrainToPlane ? TEXT("true") : TEXT("false"));
 
 	AddMovementInput(ForwardDir, MoveValue.Y);
 	AddMovementInput(RightDir, MoveValue.X);

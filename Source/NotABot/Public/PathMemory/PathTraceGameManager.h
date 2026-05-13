@@ -45,7 +45,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace")
 	float RequiredAccuracyPercent = 60.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="PathTrace")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace")
 	float PerfectAccuracyDeviation = 50.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="PathTrace")

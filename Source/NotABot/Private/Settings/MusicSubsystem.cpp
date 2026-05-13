@@ -3,7 +3,6 @@
 #include "Components/AudioComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
-#include "Sound/SoundWave.h"
 #include "TimerManager.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMusicSubsystem, Log, All);
@@ -18,6 +17,9 @@ void UMusicSubsystem::PlayMusic(
 	bool bPersistAcrossLevelTransition,
 	bool bLooping)
 {
+	// Looping is now owned by the sound asset itself. The parameter is kept for Blueprint API compatibility.
+	(void)bLooping;
+
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(PendingMusicTimerHandle);
@@ -34,11 +36,9 @@ void UMusicSubsystem::PlayMusic(
 	if (ActiveMusicComponent && CurrentMusic == Music)
 	{
 		UE_LOG(LogMusicSubsystem, Verbose, TEXT("PlayMusic ignored because '%s' is already active."), *Music->GetName());
-		bCurrentMusicLoops = bLooping;
 		if (!ActiveMusicComponent->IsPlaying())
 		{
-			const float ResumeTime = CurrentMusicPlaybackTime > 0.0f ? CurrentMusicPlaybackTime : StartTime;
-			ActiveMusicComponent->FadeIn(FMath::Max(0.0f, FadeInSeconds), VolumeMultiplier, ResumeTime);
+			ActiveMusicComponent->FadeIn(FMath::Max(0.0f, FadeInSeconds), VolumeMultiplier, StartTime);
 		}
 		return;
 	}
@@ -54,7 +54,6 @@ void UMusicSubsystem::PlayMusic(
 		PendingVolumeMultiplier = VolumeMultiplier;
 		PendingStartTime = StartTime;
 		bPendingPersistAcrossLevelTransition = bPersistAcrossLevelTransition;
-		bPendingLooping = bLooping;
 
 		if (UWorld* World = GetWorld())
 		{
@@ -68,7 +67,7 @@ void UMusicSubsystem::PlayMusic(
 		}
 	}
 
-	StartMusicNow(Music, FadeInSeconds, VolumeMultiplier, StartTime, bPersistAcrossLevelTransition, bLooping);
+	StartMusicNow(Music, FadeInSeconds, VolumeMultiplier, StartTime, bPersistAcrossLevelTransition);
 }
 
 void UMusicSubsystem::StartMusicNow(
@@ -76,16 +75,12 @@ void UMusicSubsystem::StartMusicNow(
 	float FadeInSeconds,
 	float VolumeMultiplier,
 	float StartTime,
-	bool bPersistAcrossLevelTransition,
-	bool bLooping)
+	bool bPersistAcrossLevelTransition)
 {
 	if (!Music)
 	{
 		return;
 	}
-
-	CurrentMusicPlaybackTime = FMath::Max(0.0f, StartTime);
-	CurrentMusicPlaybackPercent = 0.0f;
 
 	UAudioComponent* NewMusicComponent = UGameplayStatics::CreateSound2D(
 		GetGameInstance(),
@@ -106,9 +101,7 @@ void UMusicSubsystem::StartMusicNow(
 
 	ActiveMusicComponent = NewMusicComponent;
 	CurrentMusic = Music;
-	bCurrentMusicLoops = bLooping;
 	NewMusicComponent->OnAudioFinished.AddDynamic(this, &UMusicSubsystem::HandleActiveMusicFinished);
-	NewMusicComponent->OnAudioPlaybackPercent.AddDynamic(this, &UMusicSubsystem::HandleActiveMusicPlaybackPercent);
 	UE_LOG(LogMusicSubsystem, Log, TEXT("Playing music '%s'."), *Music->GetName());
 
 	if (FadeInSeconds > 0.0f)
@@ -131,35 +124,19 @@ void UMusicSubsystem::StartPendingMusic()
 		PendingFadeInSeconds,
 		PendingVolumeMultiplier,
 		PendingStartTime,
-		bPendingPersistAcrossLevelTransition,
-		bPendingLooping);
+		bPendingPersistAcrossLevelTransition);
 }
 
 void UMusicSubsystem::HandleActiveMusicFinished()
 {
-	if (!ActiveMusicComponent || !CurrentMusic || !bCurrentMusicLoops)
+	if (!ActiveMusicComponent)
 	{
 		return;
 	}
 
-	if (CurrentMusicPlaybackPercent < 0.98f)
-	{
-		return;
-	}
-
-	CurrentMusicPlaybackTime = 0.0f;
-	CurrentMusicPlaybackPercent = 0.0f;
-	ActiveMusicComponent->Play(0.0f);
-}
-
-void UMusicSubsystem::HandleActiveMusicPlaybackPercent(const USoundWave* PlayingSoundWave, const float PlaybackPercent)
-{
-	CurrentMusicPlaybackPercent = FMath::Clamp(PlaybackPercent, 0.0f, 1.0f);
-
-	if (PlayingSoundWave)
-	{
-		CurrentMusicPlaybackTime = FMath::Max(0.0f, PlayingSoundWave->GetDuration() * CurrentMusicPlaybackPercent);
-	}
+	ActiveMusicComponent->DestroyComponent();
+	ActiveMusicComponent = nullptr;
+	CurrentMusic = nullptr;
 }
 
 void UMusicSubsystem::StopMusic(float FadeOutSeconds)
@@ -188,7 +165,6 @@ void UMusicSubsystem::FadeOutActiveMusic(float FadeOutSeconds)
 
 	UAudioComponent* ComponentToFade = ActiveMusicComponent;
 	ComponentToFade->OnAudioFinished.RemoveDynamic(this, &UMusicSubsystem::HandleActiveMusicFinished);
-	ComponentToFade->OnAudioPlaybackPercent.RemoveDynamic(this, &UMusicSubsystem::HandleActiveMusicPlaybackPercent);
 	ActiveMusicComponent = nullptr;
 
 	const float ClampedFadeOutSeconds = FMath::Max(0.0f, FadeOutSeconds);

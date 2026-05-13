@@ -66,6 +66,10 @@ void APathTraceGameManager::HandleLightTrailFinished()
 	if (bWaitingForRecordedPlayerPath)
 	{
 		bWaitingForRecordedPlayerPath = false;
+		if (BoardActor)
+		{
+			BoardActor->SetTopSceneCaptureEnabled(false);
+		}
 		OnRecordedPlayerPathFinished.Broadcast(bRecordedPlayerPathSuccess);
 		return;
 	}
@@ -99,11 +103,6 @@ void APathTraceGameManager::EnterPlayerTurn()
 	}
 
 	CurrentState = EPathTraceState::PlayerTurn;
-
-	if (BoardActor)
-	{
-		BoardActor->SetTopSceneCaptureEnabled(false);
-	}
 
 	if (PC->GetPawn() != PlayerCharacter)
 	{
@@ -242,6 +241,10 @@ void APathTraceGameManager::ShowRecordedPlayerPath(float Duration)
 	{
 		bWaitingForRecordedPlayerPath = false;
 		bRecordedPlayerPathSuccess = false;
+		if (BoardActor)
+		{
+			BoardActor->SetTopSceneCaptureEnabled(false);
+		}
 		OnRecordedPlayerPathFinished.Broadcast(false);
 		return;
 	}
@@ -251,6 +254,10 @@ void APathTraceGameManager::ShowRecordedPlayerPath(float Duration)
 	{
 		bWaitingForRecordedPlayerPath = false;
 		bRecordedPlayerPathSuccess = false;
+		if (BoardActor)
+		{
+			BoardActor->SetTopSceneCaptureEnabled(false);
+		}
 		OnRecordedPlayerPathFinished.Broadcast(false);
 		return;
 	}
@@ -258,16 +265,16 @@ void APathTraceGameManager::ShowRecordedPlayerPath(float Duration)
 	const float AccuracyPercent = EvaluateAccuracyPercent();
 	bRecordedPlayerPathSuccess = AccuracyPercent >= RequiredAccuracyPercent;
 	bWaitingForRecordedPlayerPath = true;
+	if (BoardActor)
+	{
+		BoardActor->SetTopSceneCaptureEnabled(true);
+	}
 	LightTrailActor->StartTrailFromPath(RecordedPath, Duration, true);
 }
 
 void APathTraceGameManager::FinishMiniGame(bool bSuccess, float AccuracyPercent)
 {
 	CurrentState = EPathTraceState::Result;
-	if (BoardActor)
-	{
-		BoardActor->SetTopSceneCaptureEnabled(false);
-	}
 
 	if (PlayerCharacter)
 	{

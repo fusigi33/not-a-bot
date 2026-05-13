@@ -112,10 +112,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shell Game|Ball")
 	FVector BallStartWorldOffset = FVector(0.0f, 0.0f, -13.0f);
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shell Game|Reveal")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Shell Game|Reveal")
 	float RevealDuration = 0.55f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Shell Game|Reveal")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Shell Game|Reveal")
 	float WrongCupRevealDelay = 0.35f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Shell Game|Shuffle")

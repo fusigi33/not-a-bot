@@ -51,14 +51,24 @@ public:
 
 private:
 	bool bCanPlayerMove = false;
+	bool bWasRawWKeyDown = false;
+	bool bWasRawAKeyDown = false;
+	bool bWasRawSKeyDown = false;
+	bool bWasRawDKeyDown = false;
 	TArray<FVector> RecordedPath;
 	FVector LastRecordedLocation = FVector::ZeroVector;
 
 	void Move(const FInputActionValue& Value);
+	void LogMoveActionStarted(const FInputActionValue& Value);
+	void LogMoveActionOngoing(const FInputActionValue& Value);
+	void LogMoveActionCompleted(const FInputActionValue& Value);
+	void LogMoveActionCanceled(const FInputActionValue& Value);
+	void LogMoveActionEvent(const TCHAR* EventName, const FInputActionValue& Value) const;
 	void Look(const FInputActionValue& Value);
 	void ShowMouseCursorWhilePlayerTurn();
 	void HideMouseCursor();
 	void ForceHideMouseCursor();
+	void PollRawMovementKeys();
 	UEnhancedInputLocalPlayerSubsystem* GetEnhancedInputSubsystem() const;
 	void RegisterMappingContext();
 

@@ -6,7 +6,6 @@
 
 class UAudioComponent;
 class USoundBase;
-class USoundWave;
 
 UCLASS(BlueprintType)
 class NOTABOT_API UMusicSubsystem : public UGameInstanceSubsystem
@@ -40,8 +39,7 @@ private:
 		float FadeInSeconds,
 		float VolumeMultiplier,
 		float StartTime,
-		bool bPersistAcrossLevelTransition,
-		bool bLooping);
+		bool bPersistAcrossLevelTransition);
 
 	UFUNCTION()
 	void StartPendingMusic();
@@ -52,18 +50,11 @@ private:
 	UFUNCTION()
 	void HandleActiveMusicFinished();
 
-	UFUNCTION()
-	void HandleActiveMusicPlaybackPercent(const USoundWave* PlayingSoundWave, const float PlaybackPercent);
-
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ActiveMusicComponent = nullptr;
 
 	UPROPERTY(Transient)
 	TObjectPtr<USoundBase> CurrentMusic = nullptr;
-
-	bool bCurrentMusicLoops = true;
-	float CurrentMusicPlaybackTime = 0.0f;
-	float CurrentMusicPlaybackPercent = 0.0f;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UAudioComponent>> FadingMusicComponents;
@@ -76,5 +67,4 @@ private:
 	float PendingVolumeMultiplier = 1.0f;
 	float PendingStartTime = 0.0f;
 	bool bPendingPersistAcrossLevelTransition = false;
-	bool bPendingLooping = true;
 };
