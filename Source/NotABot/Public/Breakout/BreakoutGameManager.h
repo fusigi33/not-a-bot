@@ -8,6 +8,7 @@
 class ABreakoutBall;
 class ABreakoutBrick;
 class ABreakoutCaptureActor;
+class ABreakoutPaddle;
 class UBreakoutHUDWidget;
 class UMaterialInterface;
 class UTextureRenderTarget2D;
@@ -82,6 +83,9 @@ protected:
 	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Breakout|Gameplay")
 	TObjectPtr<ABreakoutBall> BallToControl;
 
+	UPROPERTY(EditInstanceOnly, BlueprintReadOnly, Category="Breakout|Gameplay")
+	TObjectPtr<ABreakoutPaddle> PaddleToControl;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Bricks")
 	TSubclassOf<ABreakoutBrick> BrickClass;
 
@@ -152,6 +156,8 @@ private:
 	void RemoveInvalidBrickReferences();
 	void TriggerGameOver();
 	void HandleMiniGameCleared();
+	ABreakoutPaddle* ResolvePaddleToControl();
+	void PossessPaddle();
 
 	UFUNCTION()
 	void HandleBrickDestroyed(AActor* DestroyedActor);

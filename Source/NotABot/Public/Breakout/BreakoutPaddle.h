@@ -21,6 +21,7 @@ public:
 	ABreakoutPaddle();
 
 	virtual void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
@@ -32,6 +33,11 @@ public:
 
 	UFUNCTION(BlueprintPure, Category="Breakout|Paddle")
 	FVector GetMoveAxis() const;
+
+	UFUNCTION(BlueprintCallable, Category="Breakout|Paddle")
+	void SetGameManager(ABreakoutGameManager* InGameManager);
+
+	void RegisterInputMappingContext() const;
 
 protected:
 	void MoveInput(const FInputActionValue& Value);
@@ -48,6 +54,9 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Breakout|Input")
 	TObjectPtr<UInputAction> MoveAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Input", meta=(ClampMin="0"))
+	int32 MappingPriority = 20;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Breakout|Movement", meta=(ClampMin="0.0"))
 	float MoveSpeed = 1600.0f;

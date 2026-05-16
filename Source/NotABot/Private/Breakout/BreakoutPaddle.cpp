@@ -37,20 +37,13 @@ void ABreakoutPaddle::BeginPlay()
 	Super::BeginPlay();
 	InitialLocation = GetActorLocation();
 	FindGameManagerIfMissing();
+	RegisterInputMappingContext();
+}
 
-	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
-	{
-		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
-		{
-			if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
-			{
-				if (InputMappingContext)
-				{
-					InputSubsystem->AddMappingContext(InputMappingContext, 0);
-				}
-			}
-		}
-	}
+void ABreakoutPaddle::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	RegisterInputMappingContext();
 }
 
 void ABreakoutPaddle::Tick(float DeltaSeconds)
@@ -89,6 +82,11 @@ FVector ABreakoutPaddle::GetLaunchUpDirection() const
 FVector ABreakoutPaddle::GetMoveAxis() const
 {
 	return GetActorRightVector().GetSafeNormal();
+}
+
+void ABreakoutPaddle::SetGameManager(ABreakoutGameManager* InGameManager)
+{
+	GameManager = InGameManager;
 }
 
 void ABreakoutPaddle::MoveInput(const FInputActionValue& Value)
@@ -139,6 +137,26 @@ void ABreakoutPaddle::FindGameManagerIfMissing()
 	{
 		GameManager = *It;
 		return;
+	}
+}
+
+void ABreakoutPaddle::RegisterInputMappingContext() const
+{
+	if (!InputMappingContext)
+	{
+		return;
+	}
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(GetController()))
+	{
+		if (ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
+		{
+			if (UEnhancedInputLocalPlayerSubsystem* InputSubsystem = LocalPlayer->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>())
+			{
+				InputSubsystem->ClearAllMappings();
+				InputSubsystem->AddMappingContext(InputMappingContext, MappingPriority);
+			}
+		}
 	}
 }
 

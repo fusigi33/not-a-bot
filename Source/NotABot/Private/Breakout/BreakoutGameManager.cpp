@@ -6,7 +6,9 @@
 #include "Breakout/BreakoutBrick.h"
 #include "Breakout/BreakoutCaptureActor.h"
 #include "Breakout/BreakoutHUDWidget.h"
+#include "Breakout/BreakoutPaddle.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
 #include "TimerManager.h"
@@ -68,6 +70,8 @@ void ABreakoutGameManager::StartMiniGame()
 	StartBrickDropTimer();
 
 	OnMiniGameStarted.Broadcast();
+	PossessPaddle();
+	GetWorldTimerManager().SetTimerForNextTick(this, &ABreakoutGameManager::PossessPaddle);
 }
 
 void ABreakoutGameManager::StopMiniGame()
@@ -106,6 +110,8 @@ void ABreakoutGameManager::RestartBreakoutRound()
 	}
 
 	StartBrickDropTimer();
+	PossessPaddle();
+	GetWorldTimerManager().SetTimerForNextTick(this, &ABreakoutGameManager::PossessPaddle);
 }
 
 void ABreakoutGameManager::HandleBallLost(ABreakoutBall* LostBall)
@@ -394,6 +400,48 @@ void ABreakoutGameManager::HandleMiniGameCleared()
 	}
 
 	OnMiniGameCleared.Broadcast();
+}
+
+ABreakoutPaddle* ABreakoutGameManager::ResolvePaddleToControl()
+{
+	if (IsValid(PaddleToControl))
+	{
+		return PaddleToControl;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return nullptr;
+	}
+
+	for (TActorIterator<ABreakoutPaddle> It(World); It; ++It)
+	{
+		PaddleToControl = *It;
+		return PaddleToControl;
+	}
+
+	return nullptr;
+}
+
+void ABreakoutGameManager::PossessPaddle()
+{
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+	ABreakoutPaddle* Paddle = ResolvePaddleToControl();
+	if (!Paddle)
+	{
+		return;
+	}
+
+	Paddle->SetGameManager(this);
+	if (!PlayerController || PlayerController->GetPawn() == Paddle)
+	{
+		Paddle->RegisterInputMappingContext();
+		return;
+	}
+
+	PlayerController->Possess(Paddle);
+	Paddle->RegisterInputMappingContext();
 }
 
 void ABreakoutGameManager::FindOrCreateHUDWidget()
