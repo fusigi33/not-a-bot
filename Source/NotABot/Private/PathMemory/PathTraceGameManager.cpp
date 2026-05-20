@@ -162,14 +162,21 @@ float APathTraceGameManager::EvaluateAccuracyPercent() const
 		return 0.f;
 	}
 
-	float TotalWeight = 0.f;
-	float MatchedWeight = 0.f;
-
 	const float SplineLength = BoardActor->GetSplineLength();
 	if (SplineLength <= KINDA_SMALL_NUMBER)
 	{
 		return 0.f;
 	}
+
+	TArray<FPathCheckpoint> Checkpoints;
+	BoardActor->BuildCheckpoints(Checkpoints);
+	if (Checkpoints.Num() == 0)
+	{
+		return 0.f;
+	}
+
+	TArray<bool> bVisitedCheckpoints;
+	bVisitedCheckpoints.Init(false, Checkpoints.Num());
 
 	float PrevProjectedDist = 0.f;
 	bool bHasPrevProjection = false;
@@ -182,14 +189,6 @@ float APathTraceGameManager::EvaluateAccuracyPercent() const
 		const FVector ClosestOnSpline = BoardActor->GetLocationAtDistance(ProjectedDist);
 
 		const float DistToSpline2D = FVector::Dist2D(Sample, ClosestOnSpline);
-
-		float SegmentWeight = 1.f;
-		if (i > 0)
-		{
-			SegmentWeight = FMath::Max(1.f, FVector::Dist2D(Path[i - 1], Sample));
-		}
-
-		TotalWeight += SegmentWeight;
 
 		// 스플라인에 충분히 가까워야 함
 		const bool bNearEnough = DistToSpline2D <= BoardActor->AllowedDeviation;
@@ -204,25 +203,37 @@ float APathTraceGameManager::EvaluateAccuracyPercent() const
 
 		if (bNearEnough && bForwardEnough)
 		{
-			// 충분히 가까운 거리는 완전 일치로 처리하고, 그 밖은 허용 거리까지 점진적으로 감점
-			const float PerfectDeviation = FMath::Clamp(PerfectAccuracyDeviation, 0.f, BoardActor->AllowedDeviation);
-			const float ScoredDeviationRange = FMath::Max(BoardActor->AllowedDeviation - PerfectDeviation, KINDA_SMALL_NUMBER);
-			const float Closeness = DistToSpline2D <= PerfectDeviation
-				? 1.f
-				: 1.f - FMath::Clamp((DistToSpline2D - PerfectDeviation) / ScoredDeviationRange, 0.f, 1.f);
-			MatchedWeight += SegmentWeight * Closeness;
+			for (int32 CheckpointIndex = 0; CheckpointIndex < Checkpoints.Num(); ++CheckpointIndex)
+			{
+				if (bVisitedCheckpoints[CheckpointIndex])
+				{
+					continue;
+				}
+
+				const FPathCheckpoint& Checkpoint = Checkpoints[CheckpointIndex];
+				const bool bNearCheckpointProgress = FMath::Abs(Checkpoint.DistanceAlongSpline - ProjectedDist) <= BoardActor->CheckpointReachRadius;
+				const bool bNearCheckpointLocation = FVector::Dist2D(Sample, Checkpoint.WorldLocation) <= BoardActor->CheckpointReachRadius;
+				if (bNearCheckpointProgress && bNearCheckpointLocation)
+				{
+					bVisitedCheckpoints[CheckpointIndex] = true;
+				}
+			}
 		}
 
 		PrevProjectedDist = ProjectedDist;
 		bHasPrevProjection = true;
 	}
 
-	if (TotalWeight <= KINDA_SMALL_NUMBER)
+	int32 VisitedCheckpointCount = 0;
+	for (const bool bVisited : bVisitedCheckpoints)
 	{
-		return 0.f;
+		if (bVisited)
+		{
+			++VisitedCheckpointCount;
+		}
 	}
 
-	return (MatchedWeight / TotalWeight) * 100.f;
+	return (static_cast<float>(VisitedCheckpointCount) / static_cast<float>(Checkpoints.Num())) * 100.f;
 }
 
 void APathTraceGameManager::ShowAnswerPath(float LifeTime) const

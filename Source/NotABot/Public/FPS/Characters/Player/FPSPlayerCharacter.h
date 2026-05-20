@@ -126,6 +126,8 @@ protected:
 	FTransform InitialSpawnTransform;
 	FVector InitialMeshRelativeLocation = FVector::ZeroVector;
 	FRotator InitialMeshRelativeRotation = FRotator::ZeroRotator;
+	FVector InitialCameraRelativeLocation = FVector::ZeroVector;
+	FRotator InitialCameraRelativeRotation = FRotator::ZeroRotator;
 	EPlayerWeaponType InitialWeapon = EPlayerWeaponType::Shotgun;
 
 	ECollisionEnabled::Type InitialCapsuleCollisionEnabled = ECollisionEnabled::QueryAndPhysics;

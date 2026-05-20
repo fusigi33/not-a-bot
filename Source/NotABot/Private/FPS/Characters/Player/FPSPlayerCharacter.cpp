@@ -53,6 +53,8 @@ void AFPSPlayerCharacter::BeginPlay()
 
 	InitialSpawnTransform = GetActorTransform();
 	InitialWeapon = CurrentWeapon;
+	InitialCameraRelativeLocation = FirstPersonCamera->GetRelativeLocation();
+	InitialCameraRelativeRotation = FirstPersonCamera->GetRelativeRotation();
 
 	if (UCapsuleComponent* PlayerCapsuleComponent = GetCapsuleComponent())
 	{
@@ -74,6 +76,7 @@ void AFPSPlayerCharacter::Respawn()
 	SetLifeSpan(0.f);
 	bDead = false;
 	bWantsToFire = false;
+	bIgnoreGameplayInput = false;
 	CurrentHealth = MaxHealth;
 	CurrentArmor = MaxArmor;
 	InvulnerableUntilTime = 0.f;
@@ -114,15 +117,33 @@ void AFPSPlayerCharacter::Respawn()
 		MeshComponent->ResetAnimInstanceDynamics(ETeleportType::ResetPhysics);
 	}
 
+	if (FirstPersonCamera)
+	{
+		FirstPersonCamera->AttachToComponent(
+			GetCapsuleComponent(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale);
+		FirstPersonCamera->SetRelativeLocation(InitialCameraRelativeLocation);
+		FirstPersonCamera->SetRelativeRotation(InitialCameraRelativeRotation);
+		FirstPersonCamera->bUsePawnControlRotation = true;
+	}
+
 	TeleportTo(
 		InitialSpawnTransform.GetLocation(),
 		InitialSpawnTransform.Rotator(),
 		false,
 		true);
 
-	if (AController* CurrentController = GetController())
+	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
 	{
-		CurrentController->SetControlRotation(InitialSpawnTransform.Rotator());
+		if (PlayerController->GetPawn() != this)
+		{
+			PlayerController->Possess(this);
+		}
+
+		PlayerController->bShowMouseCursor = false;
+		PlayerController->SetInputMode(FInputModeGameOnly());
+		PlayerController->SetViewTargetWithBlend(this, 0.f);
+		PlayerController->SetControlRotation(InitialSpawnTransform.Rotator());
 	}
 
 	RestoreEquippedWeaponAttachment();

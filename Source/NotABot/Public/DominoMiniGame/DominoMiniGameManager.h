@@ -146,6 +146,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame|Placement")
 	TEnumAsByte<ECollisionChannel> PlacementTraceChannel = ECC_WorldDynamic;
 
+	/** 도미노끼리 맞닿아 겹치는 배치를 잡기 위한 footprint 검사 여유입니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame|Placement", meta = (ClampMin = "0.0"))
+	float DominoStackingRejectionTolerance = 3.0f;
+
+	/** 기존 도미노 윗면과 새 도미노 바닥 사이의 간격이 이 값 이하이면 도미노 위 배치로 봅니다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame|Placement", meta = (ClampMin = "0.0"))
+	float DominoStackingVerticalTolerance = 20.0f;
+
 	/** 현재 배치에 사용할 도미노 회전입니다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Domino MiniGame|Placement")
 	FRotator CurrentPlacementRotation = FRotator::ZeroRotator;
@@ -201,8 +209,14 @@ protected:
 	/** 실제 도미노 액터 피벗 위치에서 배치 검사 박스의 중심 위치를 계산합니다. */
 	FVector GetPlacementQueryCenterFromDominoActorLocation(const FVector& ActorLocation, FRotator Rotation) const;
 
+	/** 음수로 설정된 축이 있어도 배치 검사에는 유효한 절반 크기를 사용합니다. */
+	FVector GetSafePlacementHalfExtent() const;
+
 	/** 보드 표면 위치와 실제 도미노 액터 피벗 위치를 기준으로 배치 가능 여부를 검사합니다. */
 	bool CanPlaceDominoAtBoardAndActorLocations(const FVector& BoardLocation, const FVector& ActorLocation, FRotator Rotation) const;
+
+	/** 시작/목표/배치된 도미노와 같은 층에서 footprint가 겹치는지 검사합니다. */
+	bool IsOverlappingExistingDominoFootprint(const FVector& ActorLocation, FRotator Rotation) const;
 
 	/** 보드 액터 Bounds와 겹치면 도미노가 보드 앞쪽에 오도록 로컬 Y를 보정합니다. */
 	FVector AdjustDominoLocationAboveBoard(const FVector& ActorLocation) const;

@@ -2,9 +2,11 @@
 
 #include "DominoMiniGame/DominoBlockActor.h"
 #include "DominoMiniGame/DominoBoardActor.h"
+#include "DominoMiniGame/DominoSeesawBatteringRamActor.h"
 #include "DominoMiniGame/DominoSimulationObjectInterface.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/DataTable.h"
+#include "EngineUtils.h"
 #include "Engine/World.h"
 #include "TimerManager.h"
 
@@ -160,11 +162,6 @@ bool ADominoMiniGameManager::RequestPreviewDominoAtWorldLocation(const FVector& 
 	bPreviewPlacementValid = CanPlaceDominoAtBoardAndActorLocations(BoardPlacementLocation, PlacementLocation, CurrentPlacementRotation);
 	PreviewDomino->SetPreviewValid(bPreviewPlacementValid);
 
-	UE_LOG(LogDominoMiniGame, Warning, TEXT("Preview updated. RawWorldLocation=%s, PlacementLocation=%s, bPreviewPlacementValid=%s"),
-		*WorldLocation.ToString(),
-		*PlacementLocation.ToString(),
-		bPreviewPlacementValid ? TEXT("true") : TEXT("false"));
-
 	return bPreviewPlacementValid;
 }
 
@@ -252,8 +249,13 @@ bool ADominoMiniGameManager::CanPlaceDominoAtBoardAndActorLocations(const FVecto
 		QueryParams.AddIgnoredActor(PreviewDomino);
 	}
 
+	if (IsOverlappingExistingDominoFootprint(ActorLocation, Rotation))
+	{
+		return false;
+	}
+
 	TArray<FOverlapResult> Overlaps;
-	const FCollisionShape BoxShape = FCollisionShape::MakeBox(PlacementHalfExtent);
+	const FCollisionShape BoxShape = FCollisionShape::MakeBox(GetSafePlacementHalfExtent());
 	const FQuat RotationQuat = Rotation.Quaternion();
 	const FVector QueryCenter = GetPlacementQueryCenterFromDominoActorLocation(ActorLocation, Rotation);
 
@@ -288,6 +290,161 @@ bool ADominoMiniGameManager::CanPlaceDominoAtBoardAndActorLocations(const FVecto
 	}
 
 	return true;
+}
+
+bool ADominoMiniGameManager::IsOverlappingExistingDominoFootprint(const FVector& ActorLocation, FRotator Rotation) const
+{
+	if (!GetWorld())
+	{
+		return false;
+	}
+
+	const FTransform BoardTransform = BoardActor ? BoardActor->GetActorTransform() : FTransform::Identity;
+	const FVector SafePlacementHalfExtent = GetSafePlacementHalfExtent();
+
+	const auto GetBoxCenter = [this](const FVector& InActorLocation, FRotator InRotation)
+	{
+		return GetPlacementQueryCenterFromDominoActorLocation(InActorLocation, InRotation);
+	};
+
+	const auto MakeBoardPlaneRectFromOrientedBox = [&BoardTransform](const FVector& Center, const FRotator& BoxRotation, const FVector& HalfExtent)
+	{
+		FBox2D Rect(ForceInit);
+		const FQuat BoxQuat = BoxRotation.Quaternion();
+
+		for (int32 XIndex = 0; XIndex < 2; ++XIndex)
+		{
+			for (int32 YIndex = 0; YIndex < 2; ++YIndex)
+			{
+				for (int32 ZIndex = 0; ZIndex < 2; ++ZIndex)
+				{
+					const FVector LocalOffset(
+						XIndex == 0 ? -HalfExtent.X : HalfExtent.X,
+						YIndex == 0 ? -HalfExtent.Y : HalfExtent.Y,
+						ZIndex == 0 ? -HalfExtent.Z : HalfExtent.Z
+					);
+					const FVector BoardLocalCorner = BoardTransform.InverseTransformPosition(Center + BoxQuat.RotateVector(LocalOffset));
+					Rect += FVector2D(BoardLocalCorner.X, BoardLocalCorner.Z);
+				}
+			}
+		}
+
+		return Rect;
+	};
+
+	const auto MakeBoardPlaneRectFromWorldBounds = [&BoardTransform](const FBox& Bounds)
+	{
+		FBox2D Rect(ForceInit);
+		for (int32 XIndex = 0; XIndex < 2; ++XIndex)
+		{
+			for (int32 YIndex = 0; YIndex < 2; ++YIndex)
+			{
+				for (int32 ZIndex = 0; ZIndex < 2; ++ZIndex)
+				{
+					const FVector WorldCorner(
+						XIndex == 0 ? Bounds.Min.X : Bounds.Max.X,
+						YIndex == 0 ? Bounds.Min.Y : Bounds.Max.Y,
+						ZIndex == 0 ? Bounds.Min.Z : Bounds.Max.Z
+					);
+					const FVector BoardLocalCorner = BoardTransform.InverseTransformPosition(WorldCorner);
+					Rect += FVector2D(BoardLocalCorner.X, BoardLocalCorner.Z);
+				}
+			}
+		}
+
+		return Rect;
+	};
+
+	const FVector CandidateCenter = GetBoxCenter(ActorLocation, Rotation);
+	FBox2D CandidateRect = MakeBoardPlaneRectFromOrientedBox(CandidateCenter, Rotation, SafePlacementHalfExtent);
+	CandidateRect = CandidateRect.ExpandBy(DominoStackingRejectionTolerance);
+	const float CandidateBottom = CandidateRect.Min.Y;
+
+	const auto IsPlacementBlockedByBoardPlaneRect = [this, &CandidateRect, CandidateBottom](const FBox2D& ExistingRect)
+	{
+		const bool bIntersects = CandidateRect.Intersect(ExistingRect);
+		const bool bHorizontalOverlaps = CandidateRect.Max.X >= ExistingRect.Min.X && CandidateRect.Min.X <= ExistingRect.Max.X;
+		const float VerticalGapFromExistingTop = CandidateBottom - ExistingRect.Max.Y;
+		const bool bStacksOnExisting =
+			bHorizontalOverlaps
+			&& VerticalGapFromExistingTop >= -DominoStackingRejectionTolerance
+			&& VerticalGapFromExistingTop <= DominoStackingVerticalTolerance;
+
+		return bIntersects || bStacksOnExisting;
+	};
+
+	for (TActorIterator<ADominoBlockActor> DominoIt(GetWorld()); DominoIt; ++DominoIt)
+	{
+		ADominoBlockActor* ExistingDomino = *DominoIt;
+		if (!IsValid(ExistingDomino) || ExistingDomino == PreviewDomino)
+		{
+			continue;
+		}
+
+		const FBox ExistingBounds = ExistingDomino->MeshComponent
+			? ExistingDomino->MeshComponent->Bounds.GetBox()
+			: FBox::BuildAABB(GetBoxCenter(ExistingDomino->GetActorLocation(), ExistingDomino->GetActorRotation()), ExistingDomino->PlacementHalfExtent);
+		if (!ExistingBounds.IsValid)
+		{
+			continue;
+		}
+
+		const FBox2D ExistingRect = MakeBoardPlaneRectFromWorldBounds(ExistingBounds);
+		if (!IsPlacementBlockedByBoardPlaneRect(ExistingRect))
+		{
+			continue;
+		}
+
+		UE_LOG(LogDominoMiniGame, Warning, TEXT("CanPlaceDominoAt failed: domino footprint overlaps or stacks on %s at ActorLocation=%s, CandidateRectMin=%s, CandidateRectMax=%s, ExistingRectMin=%s, ExistingRectMax=%s"),
+			*ExistingDomino->GetName(),
+			*ActorLocation.ToString(),
+			*CandidateRect.Min.ToString(),
+			*CandidateRect.Max.ToString(),
+			*ExistingRect.Min.ToString(),
+			*ExistingRect.Max.ToString());
+		return true;
+	}
+
+	for (TActorIterator<ADominoSeesawBatteringRamActor> SeesawIt(GetWorld()); SeesawIt; ++SeesawIt)
+	{
+		const ADominoSeesawBatteringRamActor* ExistingSeesaw = *SeesawIt;
+		if (!IsValid(ExistingSeesaw))
+		{
+			continue;
+		}
+
+		const FBox ExistingBounds = ExistingSeesaw->GetComponentsBoundingBox(true);
+		if (!ExistingBounds.IsValid)
+		{
+			continue;
+		}
+
+		const FBox2D ExistingRect = MakeBoardPlaneRectFromWorldBounds(ExistingBounds);
+		if (!IsPlacementBlockedByBoardPlaneRect(ExistingRect))
+		{
+			continue;
+		}
+
+		UE_LOG(LogDominoMiniGame, Warning, TEXT("CanPlaceDominoAt failed: domino footprint overlaps or stacks on seesaw %s at ActorLocation=%s, CandidateRectMin=%s, CandidateRectMax=%s, ExistingRectMin=%s, ExistingRectMax=%s"),
+			*ExistingSeesaw->GetName(),
+			*ActorLocation.ToString(),
+			*CandidateRect.Min.ToString(),
+			*CandidateRect.Max.ToString(),
+			*ExistingRect.Min.ToString(),
+			*ExistingRect.Max.ToString());
+		return true;
+	}
+
+	return false;
+}
+
+FVector ADominoMiniGameManager::GetSafePlacementHalfExtent() const
+{
+	return FVector(
+		FMath::Max(FMath::Abs(PlacementHalfExtent.X), KINDA_SMALL_NUMBER),
+		FMath::Max(FMath::Abs(PlacementHalfExtent.Y), KINDA_SMALL_NUMBER),
+		FMath::Max(FMath::Abs(PlacementHalfExtent.Z), KINDA_SMALL_NUMBER)
+	);
 }
 
 void ADominoMiniGameManager::StartSimulation()
@@ -398,7 +555,7 @@ void ADominoMiniGameManager::EnsureEndpointDominoes(bool bApplyRoundTransformToE
 		const FTransform StartTransform(RoundData.DefaultDominoRotation, RoundData.StartDominoLocation, StartDomino->GetActorScale3D());
 		StartDomino->SetPhysicsEnabled(false);
 		StartDomino->SetAsPreview(false);
-		StartDomino->PlacementHalfExtent = PlacementHalfExtent;
+		StartDomino->PlacementHalfExtent = GetSafePlacementHalfExtent();
 		StartDomino->SetActorTransform(StartTransform, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 
@@ -416,7 +573,7 @@ void ADominoMiniGameManager::EnsureEndpointDominoes(bool bApplyRoundTransformToE
 		const FTransform GoalTransform(RoundData.DefaultDominoRotation, RoundData.GoalDominoLocation, GoalDomino->GetActorScale3D());
 		GoalDomino->SetPhysicsEnabled(false);
 		GoalDomino->SetAsPreview(false);
-		GoalDomino->PlacementHalfExtent = PlacementHalfExtent;
+		GoalDomino->PlacementHalfExtent = GetSafePlacementHalfExtent();
 		GoalDomino->SetActorTransform(GoalTransform, false, nullptr, ETeleportType::TeleportPhysics);
 	}
 
@@ -487,7 +644,7 @@ ADominoBlockActor* ADominoMiniGameManager::SpawnDomino(const FVector& Location, 
 	ADominoBlockActor* Domino = GetWorld()->SpawnActor<ADominoBlockActor>(RoundData.DominoClass, Location, Rotation, SpawnParams);
 	if (Domino)
 	{
-		Domino->PlacementHalfExtent = PlacementHalfExtent;
+		Domino->PlacementHalfExtent = GetSafePlacementHalfExtent();
 		Domino->SetAsPreview(bPreview);
 		Domino->SetPlacementMode(true);
 	}
@@ -501,7 +658,7 @@ FVector ADominoMiniGameManager::GetDominoActorLocationFromBoardLocation(const FV
 
 	if (bAlignDominoCenterToCursor)
 	{
-		ActorLocation.Z -= PlacementHalfExtent.Z;
+		ActorLocation.Z -= GetSafePlacementHalfExtent().Z;
 	}
 
 	return bPlaceDominoPivotAboveBoard ? AdjustDominoLocationAboveBoard(ActorLocation) : ActorLocation;
@@ -513,7 +670,7 @@ FVector ADominoMiniGameManager::GetBoardLocationFromDominoActorLocation(const FV
 
 	if (bAlignDominoCenterToCursor)
 	{
-		BoardLocation.Z += PlacementHalfExtent.Z;
+		BoardLocation.Z += GetSafePlacementHalfExtent().Z;
 	}
 
 	return BoardLocation;
@@ -526,7 +683,7 @@ FVector ADominoMiniGameManager::GetPlacementQueryCenterFromDominoActorLocation(c
 		return ActorLocation;
 	}
 
-	return ActorLocation + Rotation.RotateVector(FVector::UpVector * PlacementHalfExtent.Z);
+	return ActorLocation + Rotation.RotateVector(FVector::UpVector * GetSafePlacementHalfExtent().Z);
 }
 
 FVector ADominoMiniGameManager::AdjustDominoLocationAboveBoard(const FVector& ActorLocation) const
